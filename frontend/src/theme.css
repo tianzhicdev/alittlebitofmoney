@@ -704,6 +704,14 @@ a {
   }
 }
 
+/* Quick-start syntax colors */
+.qs-comment { color: #6a8fa5; }
+.qs-var     { color: #f7931a; }
+.qs-url     { color: #9ad8ef; }
+.qs-cmd     { color: #e0f4ff; font-weight: 600; }
+.qs-str     { color: #a8d4b8; }
+.qs-output  { color: #7ae8a0; font-style: italic; }
+
 .collapsible {
   margin-top: 0.5rem;
 }

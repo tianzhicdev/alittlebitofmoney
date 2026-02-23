@@ -4,6 +4,7 @@ import FlowDiagram from '../components/FlowDiagram';
 import GlassCard from '../components/GlassCard';
 import WalletTabs from '../components/WalletTabs';
 import CodeBlock from '../components/CodeBlock';
+import QuickStartBlock from '../components/QuickStartBlock';
 import { useReveal } from '../hooks/useReveal';
 
 const RESPONSE_SHAPE = `{
@@ -13,15 +14,6 @@ const RESPONSE_SHAPE = `{
   "amount_sats": 30,
   "expires_in": 600
 }`;
-
-const QUICK_START = `# 1. Send request
-curl -s -X POST https://alittlebitofmoney.com/openai/v1/chat/completions \\
-  -H "Content-Type: application/json" \\
-  -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"hello"}]}' | jq .
-
-# 2. Copy the invoice, pay with your wallet (Phoenix, Muun, Zeus, Breez, etc.)
-# 3. Paste the preimage from your wallet payment details
-curl -s "https://alittlebitofmoney.com/redeem?preimage=YOUR_PREIMAGE_HERE" | jq .`;
 
 const AUTOMATION_TABS = [
   {
@@ -130,10 +122,7 @@ export default function Doc() {
         <p className="section-intro">
           Try it from your terminal right now. Pay the invoice with any Lightning wallet on your phone.
         </p>
-        <CodeBlock
-          language="bash"
-          code={QUICK_START}
-        />
+        <QuickStartBlock />
       </section>
 
       <section className="section reveal">
