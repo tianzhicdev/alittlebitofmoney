@@ -138,19 +138,28 @@ deploy_prod() {
   rsync_run "$host" "$REMOTE_DIR"
 
   local remote_cmd
-  remote_cmd=$(cat <<REMOTE
+remote_cmd=$(cat <<REMOTE
 set -euo pipefail
 cd "$REMOTE_DIR"
 if [[ ! -d "venv" ]]; then
   python3 -m venv venv
 fi
 ./venv/bin/pip install -r requirements.txt >/dev/null
-pkill -f "uvicorn server:app --host 127.0.0.1 --port $PORT" >/dev/null 2>&1 || true
-nohup ./venv/bin/uvicorn server:app --host 127.0.0.1 --port "$PORT" > app.log 2>&1 < /dev/null &
-echo \$! > .uvicorn.pid
-sleep 1
-PID=\$(cat .uvicorn.pid)
-ps -p "\$PID" -o pid= -o user= -o args=
+
+if systemctl list-unit-files | grep -q '^alittlebitofmoney\\.service'; then
+  systemctl restart alittlebitofmoney.service
+  systemctl is-active --quiet alittlebitofmoney.service
+  systemctl --no-pager --full status alittlebitofmoney.service | sed -n '1,20p'
+else
+  pkill -f "uvicorn server:app --host 127.0.0.1 --port $PORT" >/dev/null 2>&1 || true
+  nohup ./venv/bin/uvicorn server:app --host 127.0.0.1 --port "$PORT" > app.log 2>&1 < /dev/null &
+  echo \$! > .uvicorn.pid
+  sleep 1
+  PID=\$(cat .uvicorn.pid)
+  ps -p "\$PID" -o pid= -o user= -o args=
+fi
+
+curl -fsS "http://127.0.0.1:$PORT/health" >/dev/null
 echo "Prod deploy complete"
 REMOTE
 )
