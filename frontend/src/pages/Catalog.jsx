@@ -57,7 +57,7 @@ export default function Catalog() {
         <div className="hero-content">
           <p className="eyebrow">Pricing</p>
           <h1 className="glow-title">API Catalog</h1>
-          <p className="hero-sub"> </p>
+          <p className="hero-sub">Live pricing in sats. USD estimates at current BTC rate.</p>
         </div>
       </section>
 

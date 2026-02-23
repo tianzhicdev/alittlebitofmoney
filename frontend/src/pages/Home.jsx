@@ -24,7 +24,7 @@ export default function Home() {
       <section className="hero-panel reveal">
         <div className="hero-content">
           <p className="eyebrow">Lightning Native API Access</p>
-          <h1 className="glow-title" style={{ marginTop: '10rem' }}>Pay-Per-Request APIs via the Lightning Network</h1>
+          <h1 className="glow-title">Pay-Per-Request APIs via the Lightning Network</h1>
 
 
           <p className="hero-sub" >
