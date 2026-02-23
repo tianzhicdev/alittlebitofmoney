@@ -48,6 +48,27 @@
     });
   }
 
+  function initCodeTabs(root) {
+    var scope = root || document;
+    scope.querySelectorAll(".code-tab").forEach(function (tab) {
+      if (tab.dataset.tabBound === "1") return;
+      tab.dataset.tabBound = "1";
+      tab.addEventListener("click", function () {
+        var group = tab.dataset.tabGroup;
+        var target = tab.dataset.tabTarget;
+        document.querySelectorAll('.code-tab[data-tab-group="' + group + '"]').forEach(function (t) {
+          t.classList.remove("active");
+        });
+        document.querySelectorAll('[data-tab-panel^="' + group + '"]').forEach(function (p) {
+          p.classList.remove("active");
+        });
+        tab.classList.add("active");
+        var panel = document.querySelector('[data-tab-panel="' + target + '"]');
+        if (panel) panel.classList.add("active");
+      });
+    });
+  }
+
   function initCopyButtons(root) {
     var scope = root || document;
     scope.querySelectorAll("[data-copy-target]").forEach(function (button) {
@@ -360,14 +381,35 @@
   function buildEndpointExamples(apiName, endpoint, endpointIndex) {
     var snippets = buildEndpointSnippets(apiName, endpoint.path || "");
     var keyBase = slugify(apiName + "-" + (endpoint.path || "endpoint") + "-" + endpointIndex);
+    var tabGroupId = "tabs-" + keyBase;
+
+    var langs = [
+      { key: "curl", label: "curl" },
+      { key: "python", label: "python" },
+      { key: "javascript", label: "javascript" }
+    ];
+
+    var tabs = langs.map(function (lang, i) {
+      return '<button class="code-tab' + (i === 0 ? " active" : "") +
+        '" data-tab-group="' + tabGroupId +
+        '" data-tab-target="' + tabGroupId + "-" + lang.key + '">' +
+        escapeHtml(lang.label) + "</button>";
+    }).join("");
+
+    var panels = langs.map(function (lang, i) {
+      var codeId = "code-" + keyBase + "-" + lang.key;
+      return '<div class="code-tab-panel' + (i === 0 ? " active" : "") +
+        '" data-tab-panel="' + tabGroupId + "-" + lang.key + '">' +
+        buildCodeCard(lang.label, snippets[lang.key], codeId) +
+        "</div>";
+    }).join("");
 
     return [
       '<div class="endpoint-examples">',
+      '<div class="endpoint-examples-inner">',
       '<p class="endpoint-examples-title">Code Examples</p>',
-      '<div class="grid cols-3 endpoint-example-grid">',
-      buildCodeCard("curl", snippets.curl, "code-" + keyBase + "-curl"),
-      buildCodeCard("python", snippets.python, "code-" + keyBase + "-python"),
-      buildCodeCard("javascript", snippets.javascript, "code-" + keyBase + "-javascript"),
+      '<div class="code-tabs">' + tabs + "</div>",
+      panels,
       "</div>",
       "</div>"
     ].join("");
@@ -478,6 +520,7 @@
 
       wrap.innerHTML = html;
       initCopyButtons(wrap);
+      initCodeTabs(wrap);
       startReveals();
     } catch (error) {
       var btcMetaErr = document.querySelector("#btc-price-meta");
@@ -491,6 +534,7 @@
   initYearAndVersion();
   initPageTransition();
   initCopyButtons();
+  initCodeTabs();
   startReveals();
   loadCatalog();
 })();
