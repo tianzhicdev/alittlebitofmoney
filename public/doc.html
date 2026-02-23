@@ -12,7 +12,10 @@
 </head>
 <body data-page="doc">
   <header class="top-nav">
-    <a class="brand" href="/" data-nav-transition>a little bit of money</a>
+    <a class="brand" href="/" data-nav-transition>
+      <span class="brand-core">A LITTLE BIT OF</span>
+      <span class="brand-accent">MONEY</span>
+    </a>
     <nav class="nav-links" aria-label="Main Navigation">
       <a class="nav-link" href="/" data-nav-transition>Home</a>
       <a class="nav-link" href="/catalog" data-nav-transition>Catalog</a>
@@ -23,734 +26,143 @@
   <main class="page">
     <section class="hero reveal" style="min-height: 48vh;">
       <div class="hero-content">
-        <p class="eyebrow">How to Use</p>
-        <h1 class="glow-title">API Documentation</h1>
-        <p class="hero-sub">Send a request, pay a Lightning invoice, and get your result. No accounts needed.</p>
+        <p class="eyebrow">Developer Guide</p>
+        <h1 class="glow-title">Lightning Payment Flow</h1>
+        <p class="hero-sub">Send request, pay the invoice with your wallet, redeem using preimage.</p>
       </div>
     </section>
 
     <section class="section reveal">
-      <h2>API Endpoints</h2>
+      <h2>Endpoints</h2>
       <div class="docs-grid">
         <article class="glass-card">
-          <h3>Endpoints</h3>
+          <h3>Core Routes</h3>
           <ul>
-            <li><span class="inline-code">POST /{api_name}/{endpoint}</span> returns <span class="inline-code">402</span> with invoice + payment hash.</li>
-            <li><span class="inline-code">GET /redeem?preimage=...</span> verifies payment proof and return the response body.</li>
+            <li><span class="inline-code">POST /{api_name}/{endpoint}</span> returns <span class="inline-code">402</span> with invoice and payment hash.</li>
+            <li><span class="inline-code">GET /redeem?preimage=...</span> verifies payment proof and returns response body.</li>
             <li><span class="inline-code">GET /api/catalog</span> lists configured APIs and sat pricing.</li>
           </ul>
         </article>
         <article class="glass-card">
-          <h3>What to Expect</h3>
+          <h3>Use Any Wallet</h3>
           <ul>
-            <li>Each invoice can only be used once.</li>
-            <li>Your request is locked in when the invoice is created.</li>
-            <li>Expired invoices cannot be redeemed.</li>
-            <li>No signup or API key required.</li>
+            <li>Pay the BOLT11 invoice with your wallet.</li>
+            <li>Get the payment preimage from your wallet or node payment details.</li>
+            <li>Call <span class="inline-code">/redeem?preimage=...</span> once to fetch the upstream result.</li>
           </ul>
         </article>
       </div>
     </section>
 
     <section class="section reveal">
-      <h2>How It Works</h2>
-      <p class="section-intro">Three steps. No account needed.</p>
+      <h2>Basic Payment Flow</h2>
+      <p class="section-intro">This is the minimal integration pattern for clients. API-specific examples are in <a href="/catalog" data-nav-transition>Catalog</a>.</p>
+      <div class="grid cols-3">
+        <article class="code-card">
+          <div class="code-head"><span>bash</span><button class="copy-btn" data-copy-target="#flow-bash">Copy</button></div>
+          <pre><code id="flow-bash">API="https://alittlebitofmoney.com"
+ENDPOINT="/openai/v1/chat/completions"
 
-      <div class="flow-diagram">
-        <div class="flow-step">
-          <div class="flow-number">1</div>
-          <div class="flow-label">Send your request</div>
-          <div class="flow-detail">POST to any endpoint. You'll receive a Lightning invoice to pay.</div>
-        </div>
-        <div class="flow-arrow">&rarr;</div>
-        <div class="flow-step">
-          <div class="flow-number">2</div>
-          <div class="flow-label">Pay the invoice</div>
-          <div class="flow-detail">Pay with any Lightning wallet. Your wallet will give you a <code>preimage</code> as proof of payment.</div>
-        </div>
-        <div class="flow-arrow">&rarr;</div>
-        <div class="flow-step">
-          <div class="flow-number">3</div>
-          <div class="flow-label">Get your response</div>
-          <div class="flow-detail">Submit the preimage to the redeem endpoint. We forward your request upstream and return the result.</div>
-        </div>
-      </div>
-
-      <div class="flow-explanation">
-        <p><strong>What is a preimage?</strong> When you pay a Lightning invoice, your wallet receives a secret called the <em>preimage</em>. It serves as your cryptographic proof of payment &mdash; we verify it instantly without needing any account or database lookup.</p>
-      </div>
-    </section>
-
-    <section class="section reveal">
-      <h2>How It Works</h2>
-      <p class="section-intro">Three HTTP requests. No signup. No API key. Just pay and get your response.</p>
-
-      <div class="flow-diagram">
-        <div class="flow-step">
-          <div class="flow-number">1</div>
-          <div class="flow-label">Send your request</div>
-          <div class="flow-detail">POST to any endpoint like you normally would. You'll get back a <code>402</code> with a Lightning invoice.</div>
-        </div>
-        <div class="flow-arrow">→</div>
-        <div class="flow-step">
-          <div class="flow-number">2</div>
-          <div class="flow-label">Pay the invoice</div>
-          <div class="flow-detail">Use any Lightning wallet. Takes ~1 second. Your wallet gives you back a <code>preimage</code> — a 64-character hex string.</div>
-        </div>
-        <div class="flow-arrow">→</div>
-        <div class="flow-step">
-          <div class="flow-number">3</div>
-          <div class="flow-label">Get your response</div>
-          <div class="flow-detail">Pass the preimage to <code>/redeem</code>. We verify it, call OpenAI, return the result.</div>
-        </div>
-      </div>
-
-      <div class="flow-explanation">
-        <p><strong>What's a preimage?</strong> Every Lightning invoice has a <code>payment_hash</code>. When you pay it, the network reveals a secret called the <em>preimage</em>. Only you, the payer, receive it. We verify it with simple math: <code>sha256(preimage) == payment_hash</code>. No accounts, no tokens — the preimage <em>is</em> your receipt.</p>
-      </div>
-    </section>
-
-    <!-- ==================== TRY IT IN YOUR TERMINAL ==================== -->
-    <section class="section reveal">
-      <h2>Try It Right Now</h2>
-      <p class="section-intro">Open a terminal. Copy this. Pay with any wallet on your phone.</p>
-
-      <article class="code-card">
-        <div class="code-head">
-          <span>curl — try it in 30 seconds</span>
-          <button class="copy-btn" data-copy-target="#demo-curl">Copy</button>
-        </div>
-        <pre><code id="demo-curl"># Ask GPT-4o-mini to say hello
-curl -s -X POST https://alittlebitofmoney.com/openai/v1/chat/completions \
+STEP1=$(curl -s -X POST "$API$ENDPOINT" \
   -H "Content-Type: application/json" \
-  -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"Say hello in 5 words"}]}'
+  -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"Say hello"}]}' )
 
-# You get back:
-# {
-#   "status": "payment_required",
-#   "amount_sats": 30,
-#   "invoice": "lnbc300n1pj...",     ← scan this QR or copy this string
-#   "expires_in": 600
-# }
-#
-# Pay in your wallet (Phoenix, Muun, Zeus, Breez, Wallet of Satoshi...)
-# Your wallet shows: "Payment preimage: a1b2c3d4e5f6..."
+INVOICE=$(echo "$STEP1" | jq -r '.invoice')
+echo "Pay this invoice with your wallet:"
+echo "$INVOICE"
 
-# Redeem with your preimage
-curl -s https://alittlebitofmoney.com/redeem?preimage=YOUR_PREIMAGE_HERE
-</code></pre>
-      </article>
-    </section>
+read -r -p "Preimage: " PREIMAGE
+curl -s "$API/redeem?preimage=$PREIMAGE" | jq .</code></pre>
+        </article>
 
-    <!-- ==================== AUTOMATE IT ==================== -->
-    <section class="section reveal">
-      <h2>Automate It</h2>
-      <p class="section-intro">For programmatic access, you need a wallet that can pay invoices via API and return the preimage. Here's the pattern — it's the same in every language.</p>
-
-      <div class="lang-tabs">
-        <button class="lang-tab active" data-lang="python">Python</button>
-        <button class="lang-tab" data-lang="javascript">JavaScript</button>
-        <button class="lang-tab" data-lang="bash">Bash</button>
-      </div>
-
-      <!-- ==================== PYTHON ==================== -->
-      <article class="code-card lang-panel active" data-lang="python">
-        <div class="code-head">
-          <span>python — pip install requests</span>
-          <button class="copy-btn" data-copy-target="#demo-python">Copy</button>
-        </div>
-        <pre><code id="demo-python">import requests
+        <article class="code-card">
+          <div class="code-head"><span>python</span><button class="copy-btn" data-copy-target="#flow-python">Copy</button></div>
+          <pre><code id="flow-python">import requests
 
 API = "https://alittlebitofmoney.com"
+endpoint = "/openai/v1/chat/completions"
 
-# ── 1. Send your request ──────────────────────────────────
-r = requests.post(f"{API}/openai/v1/chat/completions", json={
+step1 = requests.post(f"{API}{endpoint}", json={
     "model": "gpt-4o-mini",
-    "messages": [{"role": "user", "content": "Explain Lightning in one sentence."}],
+    "messages": [{"role": "user", "content": "Say hello"}],
 })
-invoice = r.json()["invoice"]   # BOLT11 string
-sats    = r.json()["amount_sats"]
-print(f"Invoice: {sats} sats")
 
-# ── 2. Pay the invoice (pick your wallet — see below) ─────
-preimage = pay_invoice(invoice)
+invoice = step1.json()["invoice"]
+print("Pay this invoice with your wallet:")
+print(invoice)
 
-# ── 3. Redeem ─────────────────────────────────────────────
+preimage = input("Preimage: ").strip()
 result = requests.get(f"{API}/redeem", params={"preimage": preimage})
-print(result.json()["choices"][0]["message"]["content"])
-</code></pre>
-      </article>
+print(result.json())</code></pre>
+        </article>
 
-      <!-- ==================== JAVASCRIPT ==================== -->
-      <article class="code-card lang-panel" data-lang="javascript">
-        <div class="code-head">
-          <span>javascript — Node 18+ (no dependencies)</span>
-          <button class="copy-btn" data-copy-target="#demo-js">Copy</button>
-        </div>
-        <pre><code id="demo-js">const API = "https://alittlebitofmoney.com";
+        <article class="code-card">
+          <div class="code-head"><span>javascript</span><button class="copy-btn" data-copy-target="#flow-js">Copy</button></div>
+          <pre><code id="flow-js">const API = "https://alittlebitofmoney.com";
+const endpoint = "/openai/v1/chat/completions";
 
-// ── 1. Send your request ──────────────────────────────────
-const r = await fetch(`${API}/openai/v1/chat/completions`, {
+const step1 = await fetch(`${API}${endpoint}`, {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
     model: "gpt-4o-mini",
-    messages: [{ role: "user", content: "Explain Lightning in one sentence." }],
+    messages: [{ role: "user", content: "Say hello" }],
   }),
 });
-const { invoice, amount_sats } = await r.json();
-console.log(`Invoice: ${amount_sats} sats`);
 
-// ── 2. Pay the invoice (pick your wallet — see below) ─────
-const preimage = await payInvoice(invoice);
+const { invoice } = await step1.json();
+console.log("Pay this invoice with your wallet:", invoice);
 
-// ── 3. Redeem ─────────────────────────────────────────────
+const preimage = prompt("Preimage:");
 const result = await fetch(`${API}/redeem?preimage=${preimage}`);
-const data = await result.json();
-console.log(data.choices[0].message.content);
-</code></pre>
-      </article>
-
-      <!-- ==================== BASH ==================== -->
-      <article class="code-card lang-panel" data-lang="bash">
-        <div class="code-head">
-          <span>bash — requires curl + jq</span>
-          <button class="copy-btn" data-copy-target="#demo-bash">Copy</button>
-        </div>
-        <pre><code id="demo-bash">API="https://alittlebitofmoney.com"
-
-# ── 1. Send your request ──────────────────────────────────
-RESP=$(curl -s -X POST "$API/openai/v1/chat/completions" \
-  -H "Content-Type: application/json" \
-  -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"Explain Lightning in one sentence."}]}')
-
-INVOICE=$(echo "$RESP" | jq -r '.invoice')
-echo "Invoice: $(echo "$RESP" | jq -r '.amount_sats') sats"
-
-# ── 2. Pay the invoice (pick your wallet — see below) ─────
-PREIMAGE=$(pay_invoice "$INVOICE")
-
-# ── 3. Redeem ─────────────────────────────────────────────
-curl -s "$API/redeem?preimage=$PREIMAGE" | jq '.choices[0].message.content'
-</code></pre>
-      </article>
+console.log(await result.json());</code></pre>
+        </article>
+      </div>
     </section>
 
-    <!-- ==================== WALLET INTEGRATIONS ==================== -->
     <section class="section reveal">
       <h2>Wallet Integrations</h2>
-      <p class="section-intro">Plug in the <code>pay_invoice()</code> function for your wallet. Each returns the preimage.</p>
-
-      <div class="wallet-tabs">
-        <button class="wallet-tab active" data-wallet="phoenixd">Phoenixd</button>
-        <button class="wallet-tab" data-wallet="lnd">LND</button>
-        <button class="wallet-tab" data-wallet="cln">Core Lightning</button>
-        <button class="wallet-tab" data-wallet="lnbits">LNbits</button>
-        <button class="wallet-tab" data-wallet="alby">Alby</button>
-        <button class="wallet-tab" data-wallet="strike">Strike</button>
+      <p class="section-intro">Any Lightning wallet works if it can return payment preimage after a successful invoice payment.</p>
+      <div class="grid cols-3">
+        <article class="glass-card">
+          <h3>LND</h3>
+          <p>Best for backend services. Pay invoice using LND and read preimage from payment response or invoice lookup.</p>
+        </article>
+        <article class="glass-card">
+          <h3>Core Lightning</h3>
+          <p>Use CLN for programmatic payments and extract preimage from <span class="inline-code">listpays</span> response.</p>
+        </article>
+        <article class="glass-card">
+          <h3>Phoenixd</h3>
+          <p>Server-side integration path with direct payment APIs and preimage access in payment metadata.</p>
+        </article>
+        <article class="glass-card">
+          <h3>Alby Hub</h3>
+          <p>Good for browser/server apps that need wallet API access and payment details for redeem.</p>
+        </article>
+        <article class="glass-card">
+          <h3>LNbits</h3>
+          <p>Simple hosted/self-hosted API wallet route for handling invoice payment and reading preimage data.</p>
+        </article>
+        <article class="glass-card">
+          <h3>Zeus + Node</h3>
+          <p>Use Zeus connected to your own LND/CLN node for mobile control while keeping preimage access.</p>
+        </article>
       </div>
-
-      <!-- Phoenixd -->
-      <article class="code-card wallet-panel active" data-wallet="phoenixd">
-        <div class="code-head">
-          <span>phoenixd — self-custodial, easiest to run</span>
-          <button class="copy-btn" data-copy-target="#wallet-phoenixd">Copy</button>
-        </div>
-        <pre><code id="wallet-phoenixd"># Python
-def pay_invoice(bolt11):
-    r = requests.post("http://localhost:9740/payinvoice",
-        auth=("", "your-phoenix-password"),
-        data={"invoice": bolt11})
-    return r.json()["paymentPreimage"]
-
-# JavaScript
-async function payInvoice(bolt11) {
-  const r = await fetch("http://localhost:9740/payinvoice", {
-    method: "POST",
-    headers: {
-      Authorization: "Basic " + btoa(":your-phoenix-password"),
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: `invoice=${bolt11}`,
-  });
-  return (await r.json()).paymentPreimage;
-}
-
-# Bash
-pay_invoice() {
-  curl -s -u ":your-phoenix-password" \
-    -X POST http://localhost:9740/payinvoice \
-    -d "invoice=$1" | jq -r '.paymentPreimage'
-}
-</code></pre>
-      </article>
-
-      <!-- LND -->
-      <article class="code-card wallet-panel" data-wallet="lnd">
-        <div class="code-head">
-          <span>LND — most popular Lightning node</span>
-          <button class="copy-btn" data-copy-target="#wallet-lnd">Copy</button>
-        </div>
-        <pre><code id="wallet-lnd"># Python
-import base64, codecs
-
-def pay_invoice(bolt11):
-    r = requests.post("https://your-lnd:8080/v1/channels/transactions",
-        headers={"Grpc-Metadata-macaroon": "your-admin-macaroon-hex"},
-        json={"payment_request": bolt11},
-        verify="/path/to/tls.cert")
-    # LND returns payment_preimage as base64
-    preimage_b64 = r.json()["payment_preimage"]
-    return codecs.encode(base64.b64decode(preimage_b64), "hex").decode()
-
-# JavaScript
-async function payInvoice(bolt11) {
-  const r = await fetch("https://your-lnd:8080/v1/channels/transactions", {
-    method: "POST",
-    headers: { "Grpc-Metadata-macaroon": "your-admin-macaroon-hex" },
-    body: JSON.stringify({ payment_request: bolt11 }),
-  });
-  const { payment_preimage } = await r.json();
-  // LND returns base64, convert to hex
-  return Buffer.from(payment_preimage, "base64").toString("hex");
-}
-
-# Bash (using lncli)
-pay_invoice() {
-  lncli payinvoice --force "$1" 2>/dev/null | \
-    grep "Payment preimage" | awk '{print $NF}'
-}
-</code></pre>
-      </article>
-
-      <!-- Core Lightning -->
-      <article class="code-card wallet-panel" data-wallet="cln">
-        <div class="code-head">
-          <span>Core Lightning (CLN) — Blockstream's implementation</span>
-          <button class="copy-btn" data-copy-target="#wallet-cln">Copy</button>
-        </div>
-        <pre><code id="wallet-cln"># Python (via unix socket or REST plugin)
-def pay_invoice(bolt11):
-    r = requests.post("http://localhost:3010/v1/pay",
-        headers={"Rune": "your-rune-token"},
-        json={"bolt11": bolt11})
-    return r.json()["payment_preimage"]
-
-# JavaScript
-async function payInvoice(bolt11) {
-  const r = await fetch("http://localhost:3010/v1/pay", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Rune: "your-rune-token",
-    },
-    body: JSON.stringify({ bolt11 }),
-  });
-  return (await r.json()).payment_preimage;
-}
-
-# Bash (using lightning-cli)
-pay_invoice() {
-  lightning-cli pay "$1" | jq -r '.payment_preimage'
-}
-</code></pre>
-      </article>
-
-      <!-- LNbits -->
-      <article class="code-card wallet-panel" data-wallet="lnbits">
-        <div class="code-head">
-          <span>LNbits — lightweight, runs on top of any node</span>
-          <button class="copy-btn" data-copy-target="#wallet-lnbits">Copy</button>
-        </div>
-        <pre><code id="wallet-lnbits"># Python
-def pay_invoice(bolt11):
-    r = requests.post("https://your-lnbits/api/v1/payments",
-        headers={"X-Api-Key": "your-admin-key"},
-        json={"out": True, "bolt11": bolt11})
-    payment_hash = r.json()["payment_hash"]
-    # Fetch preimage from payment details
-    detail = requests.get(f"https://your-lnbits/api/v1/payments/{payment_hash}",
-        headers={"X-Api-Key": "your-admin-key"})
-    return detail.json()["preimage"]
-
-# JavaScript
-async function payInvoice(bolt11) {
-  const r = await fetch("https://your-lnbits/api/v1/payments", {
-    method: "POST",
-    headers: {
-      "X-Api-Key": "your-admin-key",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ out: true, bolt11 }),
-  });
-  const { payment_hash } = await r.json();
-  const detail = await fetch(
-    `https://your-lnbits/api/v1/payments/${payment_hash}`,
-    { headers: { "X-Api-Key": "your-admin-key" } }
-  );
-  return (await detail.json()).preimage;
-}
-</code></pre>
-      </article>
-
-      <!-- Alby -->
-      <article class="code-card wallet-panel" data-wallet="alby">
-        <div class="code-head">
-          <span>Alby — browser extension + hosted wallet</span>
-          <button class="copy-btn" data-copy-target="#wallet-alby">Copy</button>
-        </div>
-        <pre><code id="wallet-alby"># Python (Alby API — alby.com)
-def pay_invoice(bolt11):
-    r = requests.post("https://api.getalby.com/payments/bolt11",
-        headers={"Authorization": "Bearer your-alby-token"},
-        json={"invoice": bolt11})
-    return r.json()["payment_preimage"]
-
-# JavaScript (browser — using Alby extension / WebLN)
-async function payInvoice(bolt11) {
-  // If user has Alby or any WebLN-compatible extension:
-  if (typeof window.webln !== "undefined") {
-    await window.webln.enable();
-    const result = await window.webln.sendPayment(bolt11);
-    return result.preimage;
-  }
-  throw new Error("No WebLN provider found. Install Alby extension.");
-}
-
-# JavaScript (Node.js — Alby API)
-async function payInvoice(bolt11) {
-  const r = await fetch("https://api.getalby.com/payments/bolt11", {
-    method: "POST",
-    headers: {
-      Authorization: "Bearer your-alby-token",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ invoice: bolt11 }),
-  });
-  return (await r.json()).payment_preimage;
-}
-</code></pre>
-      </article>
-
-      <!-- Strike -->
-      <article class="code-card wallet-panel" data-wallet="strike">
-        <div class="code-head">
-          <span>Strike — USD-denominated, no Bitcoin needed</span>
-          <button class="copy-btn" data-copy-target="#wallet-strike">Copy</button>
-        </div>
-        <pre><code id="wallet-strike"># Python (Strike API — strike.me/en/developer)
-def pay_invoice(bolt11):
-    # Create a payment quote
-    quote = requests.post("https://api.strike.me/v1/payment-quotes/lightning",
-        headers={"Authorization": "Bearer your-strike-key"},
-        json={"lnInvoice": bolt11, "sourceCurrency": "USD"})
-    quote_id = quote.json()["paymentQuoteId"]
-
-    # Execute the payment
-    r = requests.patch(f"https://api.strike.me/v1/payment-quotes/{quote_id}/execute",
-        headers={"Authorization": "Bearer your-strike-key"})
-    # Note: Strike may not directly return preimage via API.
-    # Check their docs for payment details endpoint.
-    return r.json()["preimage"]
-</code></pre>
-      </article>
+      <div class="status-note" style="margin-top: 1rem;">If a wallet UI does not show preimage directly, pay from a node-connected wallet/API and fetch the preimage from payment records.</div>
     </section>
-
-    <!-- ==================== WebLN note ==================== -->
-    <section class="section reveal">
-      <h2>Browser Users: WebLN</h2>
-      <p class="section-intro">If your users have a browser extension like <a href="https://getalby.com">Alby</a>, you can trigger payment directly in the browser with zero backend wallet code.</p>
-      <article class="code-card">
-        <div class="code-head">
-          <span>javascript — browser with WebLN (Alby, etc.)</span>
-          <button class="copy-btn" data-copy-target="#demo-webln">Copy</button>
-        </div>
-        <pre><code id="demo-webln">async function askGPT(prompt) {
-  // 1. Send request → get invoice
-  const r = await fetch("https://alittlebitofmoney.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
-    }),
-  });
-  const { invoice } = await r.json();
-
-  // 2. Alby pops up a payment dialog — user clicks "Pay"
-  await window.webln.enable();
-  const { preimage } = await window.webln.sendPayment(invoice);
-
-  // 3. Redeem
-  const result = await fetch(
-    `https://alittlebitofmoney.com/redeem?preimage=${preimage}`
-  );
-  return (await result.json()).choices[0].message.content;
-}
-
-// Usage:
-const answer = await askGPT("What is Bitcoin?");
-console.log(answer);
-</code></pre>
-      </article>
-    </section>
-
-    <!-- Tab switching logic -->
-    <script>
-      // Language tabs
-      document.querySelectorAll('.lang-tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-          document.querySelectorAll('.lang-tab').forEach(t => t.classList.remove('active'));
-          document.querySelectorAll('.lang-panel').forEach(p => p.classList.remove('active'));
-          tab.classList.add('active');
-          document.querySelector(`.lang-panel[data-lang="${tab.dataset.lang}"]`).classList.add('active');
-        });
-      });
-      // Wallet tabs
-      document.querySelectorAll('.wallet-tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-          document.querySelectorAll('.wallet-tab').forEach(t => t.classList.remove('active'));
-          document.querySelectorAll('.wallet-panel').forEach(p => p.classList.remove('active'));
-          tab.classList.add('active');
-          document.querySelector(`.wallet-panel[data-wallet="${tab.dataset.wallet}"]`).classList.add('active');
-        });
-      });
-    </script>
-
-    <!-- Styles for new components (merge into your existing CSS) -->
-    <style>
-      .flow-diagram {
-        display: flex;
-        align-items: flex-start;
-        justify-content: center;
-        gap: 0.5rem;
-        margin: 2rem 0;
-        flex-wrap: wrap;
-      }
-      .flow-step {
-        background: var(--bg-card, #1a1a2e);
-        border: 1px solid var(--border, #333);
-        border-radius: 12px;
-        padding: 1.5rem;
-        max-width: 220px;
-        text-align: center;
-      }
-      .flow-number {
-        font-size: 2rem;
-        font-weight: 700;
-        color: var(--accent, #f7931a);
-        margin-bottom: 0.5rem;
-      }
-      .flow-label {
-        font-weight: 600;
-        font-size: 1.1rem;
-        margin-bottom: 0.5rem;
-      }
-      .flow-detail {
-        font-size: 0.9rem;
-        color: var(--text-muted, #999);
-        line-height: 1.4;
-      }
-      .flow-detail code {
-        background: rgba(247, 147, 26, 0.15);
-        padding: 0.1em 0.4em;
-        border-radius: 4px;
-        font-size: 0.85em;
-      }
-      .flow-arrow {
-        font-size: 1.5rem;
-        color: var(--text-muted, #666);
-        align-self: center;
-        padding-top: 1rem;
-      }
-      .flow-explanation {
-        max-width: 640px;
-        margin: 1.5rem auto 0;
-        padding: 1rem 1.5rem;
-        background: rgba(247, 147, 26, 0.05);
-        border-left: 3px solid var(--accent, #f7931a);
-        border-radius: 0 8px 8px 0;
-        font-size: 0.9rem;
-        line-height: 1.5;
-        color: var(--text-muted, #ccc);
-      }
-      .flow-explanation code {
-        background: rgba(247, 147, 26, 0.15);
-        padding: 0.1em 0.4em;
-        border-radius: 4px;
-        font-size: 0.85em;
-      }
-
-      .lang-tabs, .wallet-tabs {
-        display: flex;
-        gap: 0;
-        margin-bottom: 0;
-        flex-wrap: wrap;
-      }
-      .lang-tab, .wallet-tab {
-        padding: 0.6rem 1.2rem;
-        background: transparent;
-        border: 1px solid var(--border, #333);
-        border-bottom: none;
-        color: var(--text-muted, #999);
-        cursor: pointer;
-        font-size: 0.85rem;
-        font-family: inherit;
-        border-radius: 8px 8px 0 0;
-        transition: all 0.2s;
-      }
-      .lang-tab.active, .wallet-tab.active {
-        background: var(--bg-card, #1a1a2e);
-        color: var(--text, #fff);
-        border-color: var(--accent, #f7931a);
-        border-bottom: 1px solid var(--bg-card, #1a1a2e);
-      }
-      .lang-panel, .wallet-panel {
-        display: none;
-      }
-      .lang-panel.active, .wallet-panel.active {
-        display: block;
-      }
-      .lang-panel .code-card, .wallet-panel .code-card {
-        border-top-left-radius: 0;
-      }
-
-      @media (max-width: 700px) {
-        .flow-arrow { display: none; }
-        .flow-diagram { flex-direction: column; align-items: center; }
-        .flow-step { max-width: 100%; }
-      }
-    </style>
-
-
-    <!-- Tab switching logic -->
-    <script>
-      document.querySelectorAll('.lang-tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-          document.querySelectorAll('.lang-tab').forEach(t => t.classList.remove('active'));
-          document.querySelectorAll('.lang-panel').forEach(p => p.classList.remove('active'));
-          tab.classList.add('active');
-          document.querySelector(`.lang-panel[data-lang="${tab.dataset.lang}"]`).classList.add('active');
-        });
-      });
-    </script>
-
-    <!-- Minimal styles for the new components (merge into your existing CSS) -->
-    <style>
-      .flow-diagram {
-        display: flex;
-        align-items: flex-start;
-        justify-content: center;
-        gap: 0.5rem;
-        margin: 2rem 0;
-        flex-wrap: wrap;
-      }
-      .flow-step {
-        background: var(--bg-card, #1a1a2e);
-        border: 1px solid var(--border, #333);
-        border-radius: 12px;
-        padding: 1.5rem;
-        max-width: 220px;
-        text-align: center;
-      }
-      .flow-number {
-        font-size: 2rem;
-        font-weight: 700;
-        color: var(--accent, #ff8c2a);
-        margin-bottom: 0.5rem;
-      }
-      .flow-label {
-        font-weight: 600;
-        font-size: 1.1rem;
-        margin-bottom: 0.5rem;
-      }
-      .flow-detail {
-        font-size: 0.9rem;
-        color: var(--text-muted, #999);
-        line-height: 1.4;
-      }
-      .flow-detail code {
-        background: rgba(255, 140, 42, 0.15);
-        padding: 0.1em 0.4em;
-        border-radius: 4px;
-        font-size: 0.85em;
-      }
-      .flow-arrow {
-        font-size: 1.5rem;
-        color: var(--text-muted, #666);
-        align-self: center;
-        padding-top: 1rem;
-      }
-      .flow-explanation {
-        max-width: 640px;
-        margin: 1.5rem auto 0;
-        padding: 1rem 1.5rem;
-        background: rgba(255, 140, 42, 0.05);
-        border-left: 3px solid var(--accent, #ff8c2a);
-        border-radius: 0 8px 8px 0;
-        font-size: 0.9rem;
-        line-height: 1.5;
-        color: var(--text-muted, #ccc);
-      }
-      .flow-explanation code {
-        background: rgba(255, 140, 42, 0.15);
-        padding: 0.1em 0.4em;
-        border-radius: 4px;
-        font-size: 0.85em;
-      }
-
-      .lang-tabs {
-        display: flex;
-        gap: 0;
-        margin-bottom: 0;
-      }
-      .lang-tab {
-        padding: 0.6rem 1.5rem;
-        background: transparent;
-        border: 1px solid var(--border, #333);
-        border-bottom: none;
-        color: var(--text-muted, #999);
-        cursor: pointer;
-        font-size: 0.9rem;
-        font-family: inherit;
-        border-radius: 8px 8px 0 0;
-        transition: all 0.2s;
-      }
-      .lang-tab.active {
-        background: var(--bg-card, #1a1a2e);
-        color: var(--text, #fff);
-        border-color: var(--accent, #ff8c2a);
-        border-bottom: 1px solid var(--bg-card, #1a1a2e);
-      }
-      .lang-panel {
-        display: none;
-      }
-      .lang-panel.active {
-        display: block;
-      }
-      .lang-panel .code-card {
-        border-top-left-radius: 0;
-      }
-
-      @media (max-width: 700px) {
-        .flow-arrow { display: none; }
-        .flow-diagram { flex-direction: column; align-items: center; }
-        .flow-step { max-width: 100%; }
-      }
-    </style>
-
 
     <section class="section reveal" id="api-policy">
       <h2>Policy</h2>
       <div class="glass-card">
-        <p>Access is pay-per-request. Pricing and available endpoints may change at any time. Abusive or malicious usage may result in requests being blocked.</p>
+        <p>Access is pay-per-request. Pricing and endpoint availability may change. Abusive usage may be blocked.</p>
       </div>
     </section>
 
     <section class="section reveal" id="terms">
       <h2>Terms</h2>
       <div class="glass-card">
-        <p>This service is provided as-is. You are responsible for safeguarding your wallet credentials and any invoices you pay. Payments are final and non-refundable.</p>
+        <p>This service is provided as-is. You are responsible for your wallet credentials, invoices, and upstream API usage.</p>
       </div>
     </section>
   </main>
@@ -758,14 +170,14 @@ console.log(answer);
   <footer class="footer">
     <div class="footer-links">
       <a href="mailto:hello@alittlebitofmoney.com">Contact Us</a>
-      <a href="#api-policy" data-nav-transition>Policy</a>
-      <a href="#terms" data-nav-transition>Terms</a>
+      <a href="/doc#api-policy" data-nav-transition>Policy</a>
+      <a href="/doc#terms" data-nav-transition>Terms</a>
     </div>
-    <div>Version <span data-version>v0.2.0</span> | <span data-year></span> a little bit of money</div>
+    <div>Version <span data-version>v0.2.0</span> | <span data-year></span> | alittlebitofmoney.com</div>
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
-  <script src="/assets/app.js"></script>
+  <script src="/assets/app.js?v=20260223b"></script>
 </body>
 </html>

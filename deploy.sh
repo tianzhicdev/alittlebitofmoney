@@ -158,6 +158,7 @@ REMOTE
   ssh_run "$host" "$remote_cmd"
 
   echo "Prod app expected on 127.0.0.1:$PORT (behind nginx)"
+  echo "Version v0.2.0 | $(date +%Y) | alittlebitofmoney.com"
 }
 
 case "$MODE" in
