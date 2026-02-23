@@ -118,45 +118,38 @@
       .replace(/'/g, "&#39;");
   }
 
-  function endpointPrice(endpoint) {
-    function centsText(cents) {
-      if (typeof cents !== "number" || Number.isNaN(cents)) {
-        return "";
+  function centsText(cents) {
+    if (typeof cents !== "number" || Number.isNaN(cents)) {
+      return "";
+    }
+    return cents.toFixed(1) + "\u00a2";
+  }
+
+  function endpointPriceFlat(endpoint) {
+    var sats = (endpoint.price_sats || 0) + " sats";
+    var cents = centsText(endpoint.price_usd_cents);
+    return cents ? sats + " / " + cents : sats;
+  }
+
+  function buildModelTable(endpoint) {
+    var models = endpoint.models || {};
+    var keys = Object.keys(models);
+    if (!keys.length) {
+      return "<span>n/a</span>";
+    }
+    var rows = keys.map(function (model) {
+      var cfg = models[model];
+      var sats = 0;
+      var cents;
+      if (cfg && typeof cfg === "object") {
+        sats = cfg.price_sats || 0;
+        cents = cfg.price_usd_cents;
+      } else {
+        sats = cfg || 0;
       }
-      return " / " + cents.toFixed(1) + "¢";
-    }
-
-    if (endpoint.price_type === "flat") {
-      return (endpoint.price_sats || 0) + " sats" + centsText(endpoint.price_usd_cents);
-    }
-
-    if (endpoint.price_type === "per_model") {
-      var models = endpoint.models || {};
-      return Object.keys(models)
-        .map(function (model) {
-          var modelConfig = models[model];
-          var sats = 0;
-          var cents;
-          var maxOutputTokens;
-
-          if (modelConfig && typeof modelConfig === "object") {
-            sats = modelConfig.price_sats || 0;
-            cents = modelConfig.price_usd_cents;
-            maxOutputTokens = modelConfig.max_output_tokens;
-          } else {
-            sats = modelConfig || 0;
-          }
-
-          var line = model + ": " + sats + " sats" + centsText(cents);
-          if (typeof maxOutputTokens === "number") {
-            line += " (max_out " + maxOutputTokens + ")";
-          }
-          return line;
-        })
-        .join(" | ");
-    }
-
-    return "n/a";
+      return '<tr><td>' + escapeHtml(model) + '</td><td>' + sats + '</td><td>' + (centsText(cents) || '—') + '</td></tr>';
+    }).join("");
+    return '<table class="model-table"><thead><tr><th>Model</th><th>Sats</th><th>USD</th></tr></thead><tbody>' + rows + '</tbody></table>';
   }
 
   async function loadCatalog() {
@@ -197,16 +190,20 @@
         var endpoints = (api.endpoints || [])
           .map(function (endpoint) {
             var description = endpoint.description || "";
-            if (typeof endpoint.max_request_bytes === "number") {
-              description += (description ? " | " : "") + "max " + endpoint.max_request_bytes + " bytes";
+            var priceHtml;
+            if (endpoint.price_type === "per_model") {
+              priceHtml = buildModelTable(endpoint);
+            } else {
+              priceHtml = '<span class="price">' + escapeHtml(endpointPriceFlat(endpoint)) + '</span>';
             }
             return [
               '<li class="endpoint">',
               '<div class="line">',
               "<code>" + escapeHtml(endpoint.method || "POST") + " " + escapeHtml(endpoint.path || "") + "</code>",
-              '<span class="price">' + escapeHtml(endpointPrice(endpoint)) + "</span>",
+              endpoint.price_type !== "per_model" ? priceHtml : "",
               "</div>",
-              "<p>" + escapeHtml(description) + "</p>",
+              description ? "<p>" + escapeHtml(description) + "</p>" : "",
+              endpoint.price_type === "per_model" ? priceHtml : "",
               "</li>"
             ].join("");
           })
@@ -228,7 +225,11 @@
       wrap.innerHTML = html;
       startReveals();
     } catch (error) {
-      wrap.innerHTML = '<div class="status-note">Failed to load catalog. Refresh and try again.</div>';
+      var btcMetaErr = document.querySelector("#btc-price-meta");
+      if (btcMetaErr) {
+        btcMetaErr.style.display = "none";
+      }
+      wrap.innerHTML = '<div class="status-note">Could not load the catalog. Please refresh and try again.</div>';
     }
   }
 

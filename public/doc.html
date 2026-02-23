@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>API Doc | alittlebitofmoney</title>
+  <title>API Doc | a little bit of money</title>
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -11,7 +12,7 @@
 </head>
 <body data-page="doc">
   <header class="top-nav">
-    <a class="brand" href="/" data-nav-transition>alittlebitofmoney</a>
+    <a class="brand" href="/" data-nav-transition>a little bit of money</a>
     <nav class="nav-links" aria-label="Main Navigation">
       <a class="nav-link" href="/" data-nav-transition>Home</a>
       <a class="nav-link" href="/catalog" data-nav-transition>Catalog</a>
@@ -22,30 +23,30 @@
   <main class="page">
     <section class="hero reveal" style="min-height: 48vh;">
       <div class="hero-content">
-        <p class="eyebrow">Developer Reference</p>
-        <h1 class="glow-title">Lightning-Paid API Documentation</h1>
-        <p class="hero-sub">Request, invoice, wallet payment, redeem. Full pay-per-request flow in one place.</p>
+        <p class="eyebrow">How to Use</p>
+        <h1 class="glow-title">API Documentation</h1>
+        <p class="hero-sub">Send a request, pay a Lightning invoice, and get your result. No accounts needed.</p>
       </div>
     </section>
 
     <section class="section reveal">
-      <h2>Core Flow</h2>
+      <h2>API Endpoints</h2>
       <div class="docs-grid">
         <article class="glass-card">
-          <h3>Routes</h3>
+          <h3>Endpoints</h3>
           <ul>
-            <li><span class="inline-code">POST /v1/{api_name}/{endpoint}</span> returns <span class="inline-code">402</span> with invoice + payment hash.</li>
-            <li><span class="inline-code">GET /redeem?preimage=...</span> verifies payment proof and return the response body.</li>
-            <li><span class="inline-code">GET /api/catalog</span> lists configured APIs and sat pricing.</li>
+            <li><span class="inline-code">POST /v1/{api_name}/{endpoint}</span> &mdash; submit your request and receive a Lightning invoice.</li>
+            <li><span class="inline-code">GET /redeem?preimage=...</span> &mdash; submit your payment proof and receive the API response.</li>
+            <li><span class="inline-code">GET /api/catalog</span> &mdash; view available APIs and pricing.</li>
           </ul>
         </article>
         <article class="glass-card">
-          <h3>Behavior Guarantees</h3>
+          <h3>What to Expect</h3>
           <ul>
-            <li>Invoice hash is one-time redeemable.</li>
-            <li>Request body is fixed at pricing time.</li>
-            <li>Expired invoice hashes are rejected.</li>
-            <li>No signup required for callers.</li>
+            <li>Each invoice can only be used once.</li>
+            <li>Your request is locked in when the invoice is created.</li>
+            <li>Expired invoices cannot be redeemed.</li>
+            <li>No signup or API key required.</li>
           </ul>
         </article>
       </div>
@@ -53,36 +54,36 @@
 
     <section class="section reveal">
       <h2>How It Works</h2>
-      <p class="section-intro">Three steps. No signup. No API key. Just pay and get your response.</p>
+      <p class="section-intro">Three steps. No account needed.</p>
 
       <div class="flow-diagram">
         <div class="flow-step">
           <div class="flow-number">1</div>
           <div class="flow-label">Send your request</div>
-          <div class="flow-detail">POST to any endpoint. Get back a Lightning invoice instead of a 200.</div>
+          <div class="flow-detail">POST to any endpoint. You'll receive a Lightning invoice to pay.</div>
         </div>
-        <div class="flow-arrow">→</div>
+        <div class="flow-arrow">&rarr;</div>
         <div class="flow-step">
           <div class="flow-number">2</div>
           <div class="flow-label">Pay the invoice</div>
-          <div class="flow-detail">Any Lightning wallet. ~1 second. You get a <code>preimage</code> — your receipt.</div>
+          <div class="flow-detail">Pay with any Lightning wallet. Your wallet will give you a <code>preimage</code> as proof of payment.</div>
         </div>
-        <div class="flow-arrow">→</div>
+        <div class="flow-arrow">&rarr;</div>
         <div class="flow-step">
           <div class="flow-number">3</div>
-          <div class="flow-label">Redeem with preimage</div>
-          <div class="flow-detail">Pass the preimage. We proxy to OpenAI. You get the response.</div>
+          <div class="flow-label">Get your response</div>
+          <div class="flow-detail">Submit the preimage to the redeem endpoint. We forward your request upstream and return the result.</div>
         </div>
       </div>
 
       <div class="flow-explanation">
-        <p><strong>Why a preimage?</strong> When you pay a Lightning invoice, your wallet receives a 32-byte secret called the <em>preimage</em>. Only the payer knows it. We verify it by checking that <code>sha256(preimage) == payment_hash</code> — pure math, no database lookup needed. It's your cryptographic proof of payment.</p>
+        <p><strong>What is a preimage?</strong> When you pay a Lightning invoice, your wallet receives a secret called the <em>preimage</em>. It serves as your cryptographic proof of payment &mdash; we verify it instantly without needing any account or database lookup.</p>
       </div>
     </section>
 
     <section class="section reveal">
       <h2>Code Examples</h2>
-      <p class="section-intro">Copy-paste into your terminal or codebase. Each example sends a chat completion, pays the invoice, and redeems the response.</p>
+      <p class="section-intro">Ready-to-use examples for calling the API. Each one sends a request, pays the invoice, and retrieves the response.</p>
 
       <div class="lang-tabs">
         <button class="lang-tab active" data-lang="bash">Bash</button>
@@ -279,7 +280,7 @@ main().catch(console.error);
       .flow-number {
         font-size: 2rem;
         font-weight: 700;
-        color: var(--accent, #f7931a);
+        color: var(--accent, #ff8c2a);
         margin-bottom: 0.5rem;
       }
       .flow-label {
@@ -293,7 +294,7 @@ main().catch(console.error);
         line-height: 1.4;
       }
       .flow-detail code {
-        background: rgba(247, 147, 26, 0.15);
+        background: rgba(255, 140, 42, 0.15);
         padding: 0.1em 0.4em;
         border-radius: 4px;
         font-size: 0.85em;
@@ -308,15 +309,15 @@ main().catch(console.error);
         max-width: 640px;
         margin: 1.5rem auto 0;
         padding: 1rem 1.5rem;
-        background: rgba(247, 147, 26, 0.05);
-        border-left: 3px solid var(--accent, #f7931a);
+        background: rgba(255, 140, 42, 0.05);
+        border-left: 3px solid var(--accent, #ff8c2a);
         border-radius: 0 8px 8px 0;
         font-size: 0.9rem;
         line-height: 1.5;
         color: var(--text-muted, #ccc);
       }
       .flow-explanation code {
-        background: rgba(247, 147, 26, 0.15);
+        background: rgba(255, 140, 42, 0.15);
         padding: 0.1em 0.4em;
         border-radius: 4px;
         font-size: 0.85em;
@@ -342,7 +343,7 @@ main().catch(console.error);
       .lang-tab.active {
         background: var(--bg-card, #1a1a2e);
         color: var(--text, #fff);
-        border-color: var(--accent, #f7931a);
+        border-color: var(--accent, #ff8c2a);
         border-bottom: 1px solid var(--bg-card, #1a1a2e);
       }
       .lang-panel {
@@ -366,14 +367,14 @@ main().catch(console.error);
     <section class="section reveal" id="api-policy">
       <h2>Policy</h2>
       <div class="glass-card">
-        <p>Per-request access only. Pricing and endpoint availability can change based on backend config. Malicious or abusive traffic may be blocked to keep wallet and upstream usage safe.</p>
+        <p>Access is pay-per-request. Pricing and available endpoints may change at any time. Abusive or malicious usage may result in requests being blocked.</p>
       </div>
     </section>
 
     <section class="section reveal" id="terms">
       <h2>Terms</h2>
       <div class="glass-card">
-        <p>Use at your own risk. You are responsible for your wallet keys, paid invoices, and upstream API usage. Keep your environment variables and Lightning credentials private.</p>
+        <p>This service is provided as-is. You are responsible for safeguarding your wallet credentials and any invoices you pay. Payments are final and non-refundable.</p>
       </div>
     </section>
   </main>
@@ -384,7 +385,7 @@ main().catch(console.error);
       <a href="#api-policy" data-nav-transition>Policy</a>
       <a href="#terms" data-nav-transition>Terms</a>
     </div>
-    <div>Version <span data-version>v0.2.0</span> | <span data-year></span> alittlebitofmoney</div>
+    <div>Version <span data-version>v0.2.0</span> | <span data-year></span> a little bit of money</div>
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
