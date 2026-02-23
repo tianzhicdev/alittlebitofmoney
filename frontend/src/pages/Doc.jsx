@@ -126,6 +126,17 @@ export default function Doc() {
       </section>
 
       <section className="section reveal">
+        <h2 className="section-title">Quick Start</h2>
+        <p className="section-intro">
+          Try it from your terminal right now. Pay the invoice with any Lightning wallet on your phone.
+        </p>
+        <CodeBlock
+          language="bash"
+          code={QUICK_START}
+        />
+      </section>
+
+      <section className="section reveal">
         <h2 className="section-title">Coding Example</h2>
         <p className="section-intro">Use this 3-step pattern in your app and replace the wallet call only.</p>
         <CodeTabs tabs={AUTOMATION_TABS} />
