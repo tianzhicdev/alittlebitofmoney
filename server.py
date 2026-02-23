@@ -15,7 +15,6 @@ import yaml
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
-from fastapi.staticfiles import StaticFiles
 
 from lib.invoice_store import InvoiceRecord, InvoiceStore
 from lib.phoenix import PhoenixClient, PhoenixError
@@ -23,10 +22,8 @@ from lib.phoenix import PhoenixClient, PhoenixError
 
 BASE_DIR = Path(__file__).resolve().parent
 CONFIG_PATH = BASE_DIR / "config.yaml"
-PUBLIC_DIR = BASE_DIR / "public"
-PUBLIC_INDEX = PUBLIC_DIR / "index.html"
-PUBLIC_CATALOG = PUBLIC_DIR / "catalog.html"
-PUBLIC_DOC = PUBLIC_DIR / "doc.html"
+FRONTEND_DIST_DIR = BASE_DIR / "frontend" / "dist"
+FRONTEND_INDEX = FRONTEND_DIST_DIR / "index.html"
 
 load_dotenv(BASE_DIR / ".env")
 
@@ -90,6 +87,37 @@ def _utc_timestamp_iso(timestamp: float) -> Optional[str]:
         .isoformat()
         .replace("+00:00", "Z")
     )
+
+
+def _frontend_missing_response() -> JSONResponse:
+    return _build_error(
+        503,
+        "frontend_unavailable",
+        "Frontend build not found. Run `cd frontend && npm run build`.",
+    )
+
+
+def _frontend_index_response() -> Response:
+    if not FRONTEND_INDEX.exists():
+        return _frontend_missing_response()
+    return FileResponse(FRONTEND_INDEX)
+
+
+def _resolve_frontend_file(path: str) -> Optional[Path]:
+    if not path:
+        return FRONTEND_INDEX if FRONTEND_INDEX.exists() else None
+
+    requested_path = Path(path)
+    if requested_path.is_absolute() or ".." in requested_path.parts:
+        return None
+
+    candidate = (FRONTEND_DIST_DIR / requested_path).resolve()
+    dist_root = FRONTEND_DIST_DIR.resolve()
+    if dist_root not in candidate.parents and candidate != dist_root:
+        return None
+    if candidate.is_file():
+        return candidate
+    return None
 
 
 def _max_request_bytes(endpoint: Dict[str, Any]) -> int:
@@ -212,6 +240,8 @@ def _build_catalog(
                 "price_type": endpoint.get("price_type"),
                 "description": endpoint.get("description", ""),
             }
+            if endpoint.get("example"):
+                item["example"] = endpoint["example"]
 
             if endpoint.get("price_type") == "flat":
                 price_sats = int(endpoint.get("price_sats", 0))
@@ -302,7 +332,6 @@ async def _get_cached_btc_usd() -> Tuple[Optional[float], Optional[str]]:
     return _btc_usd_price, _utc_timestamp_iso(_btc_usd_updated_at)
 
 app = FastAPI(title="alittlebitofmoney")
-app.mount("/assets", StaticFiles(directory=PUBLIC_DIR / "assets"), name="assets")
 
 _cleanup_task: Optional[asyncio.Task[None]] = None
 
@@ -331,17 +360,17 @@ async def shutdown() -> None:
 
 @app.get("/")
 async def root() -> Response:
-    return FileResponse(PUBLIC_INDEX)
+    return _frontend_index_response()
 
 
 @app.get("/catalog")
 async def catalog_page() -> Response:
-    return FileResponse(PUBLIC_CATALOG)
+    return _frontend_index_response()
 
 
 @app.get("/doc")
 async def doc_page() -> Response:
-    return FileResponse(PUBLIC_DOC)
+    return _frontend_index_response()
 
 
 @app.get("/api/catalog")
@@ -605,3 +634,16 @@ async def redeem(preimage: Optional[str] = None) -> Response:
         status_code=upstream_response.status_code,
         media_type=content_type,
     )
+
+
+@app.get("/{full_path:path}", include_in_schema=False)
+async def frontend_catchall(full_path: str) -> Response:
+    static_file = _resolve_frontend_file(full_path)
+    if static_file is not None:
+        return FileResponse(static_file)
+
+    reserved_root = full_path.split("/", 1)[0]
+    if reserved_root in {"api", "openai", "v1", "redeem", "health"}:
+        return _build_error(404, "not_found", "Route not found")
+
+    return _frontend_index_response()

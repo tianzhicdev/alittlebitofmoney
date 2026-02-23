@@ -87,6 +87,7 @@ rsync_run() {
     --exclude "__pycache__"
     --exclude ".venv"
     --exclude "venv"
+    --exclude "frontend/node_modules"
     --exclude "*.pyc"
     --exclude ".DS_Store"
     --exclude ".env"
@@ -133,6 +134,16 @@ deploy_prod() {
   fi
 
   local host="$VPS_USER@$VPS_IP"
+
+  if [[ -d "frontend" ]]; then
+    need_cmd npm
+    echo "Building frontend bundle"
+    (
+      cd frontend
+      npm ci
+      npm run build
+    )
+  fi
 
   echo "Syncing code to $host:$REMOTE_DIR"
   rsync_run "$host" "$REMOTE_DIR"
