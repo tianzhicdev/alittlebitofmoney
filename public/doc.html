@@ -57,10 +57,17 @@
     <section class="section reveal">
       <h2>Basic Payment Flow</h2>
       <p class="section-intro">This is the minimal integration pattern for clients. API-specific examples are in <a href="/catalog" data-nav-transition>Catalog</a>.</p>
-      <div class="grid cols-3">
-        <article class="code-card">
-          <div class="code-head"><span>bash</span><button class="copy-btn" data-copy-target="#flow-bash">Copy</button></div>
-          <pre><code id="flow-bash">API="https://alittlebitofmoney.com"
+      <div class="endpoint-examples" style="justify-content: flex-start;">
+        <div class="endpoint-examples-inner" style="max-width: 720px;">
+          <div class="code-tabs">
+            <button class="code-tab active" data-tab-group="doc-flow" data-tab-target="doc-flow-bash">bash</button>
+            <button class="code-tab" data-tab-group="doc-flow" data-tab-target="doc-flow-python">python</button>
+            <button class="code-tab" data-tab-group="doc-flow" data-tab-target="doc-flow-js">javascript</button>
+          </div>
+          <div class="code-tab-panel active" data-tab-panel="doc-flow-bash">
+            <article class="code-card">
+              <div class="code-head"><span>bash</span><button class="copy-btn" data-copy-target="#flow-bash">Copy</button></div>
+              <pre><code id="flow-bash">API="https://alittlebitofmoney.com"
 ENDPOINT="/openai/v1/chat/completions"
 
 STEP1=$(curl -s -X POST "$API$ENDPOINT" \
@@ -73,11 +80,12 @@ echo "$INVOICE"
 
 read -r -p "Preimage: " PREIMAGE
 curl -s "$API/redeem?preimage=$PREIMAGE" | jq .</code></pre>
-        </article>
-
-        <article class="code-card">
-          <div class="code-head"><span>python</span><button class="copy-btn" data-copy-target="#flow-python">Copy</button></div>
-          <pre><code id="flow-python">import requests
+            </article>
+          </div>
+          <div class="code-tab-panel" data-tab-panel="doc-flow-python">
+            <article class="code-card">
+              <div class="code-head"><span>python</span><button class="copy-btn" data-copy-target="#flow-python">Copy</button></div>
+              <pre><code id="flow-python">import requests
 
 API = "https://alittlebitofmoney.com"
 endpoint = "/openai/v1/chat/completions"
@@ -94,11 +102,12 @@ print(invoice)
 preimage = input("Preimage: ").strip()
 result = requests.get(f"{API}/redeem", params={"preimage": preimage})
 print(result.json())</code></pre>
-        </article>
-
-        <article class="code-card">
-          <div class="code-head"><span>javascript</span><button class="copy-btn" data-copy-target="#flow-js">Copy</button></div>
-          <pre><code id="flow-js">const API = "https://alittlebitofmoney.com";
+            </article>
+          </div>
+          <div class="code-tab-panel" data-tab-panel="doc-flow-js">
+            <article class="code-card">
+              <div class="code-head"><span>javascript</span><button class="copy-btn" data-copy-target="#flow-js">Copy</button></div>
+              <pre><code id="flow-js">const API = "https://alittlebitofmoney.com";
 const endpoint = "/openai/v1/chat/completions";
 
 const step1 = await fetch(`${API}${endpoint}`, {
@@ -116,7 +125,9 @@ console.log("Pay this invoice with your wallet:", invoice);
 const preimage = prompt("Preimage:");
 const result = await fetch(`${API}/redeem?preimage=${preimage}`);
 console.log(await result.json());</code></pre>
-        </article>
+            </article>
+          </div>
+        </div>
       </div>
     </section>
 
