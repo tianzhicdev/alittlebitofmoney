@@ -127,6 +127,39 @@ def _price_for_request(endpoint: Dict[str, Any], request_body: Dict[str, Any]) -
     raise ValueError(f"unsupported price type: {price_type}")
 
 
+def _apply_output_token_cap(
+    endpoint: Dict[str, Any],
+    body: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Enforce max_output_tokens cap from model config on a request body."""
+    requested_model = body.get("model")
+    model_name = str(requested_model) if requested_model is not None else "_default"
+    model_config = _resolve_model_config(endpoint, model_name)
+    if model_config is None:
+        raise LookupError(f"model_not_supported:{model_name}")
+
+    cap = model_config.get("max_output_tokens")
+    if cap is not None:
+        cap_int = int(cap)
+        requested_max = body.get("max_tokens")
+        if requested_max is None:
+            requested_max = body.get("max_completion_tokens")
+        if requested_max is None:
+            requested_max = body.get("max_output_tokens")
+        try:
+            requested_max_int = int(requested_max) if requested_max is not None else None
+        except (TypeError, ValueError):
+            requested_max_int = None
+
+        if requested_max_int is None or requested_max_int > cap_int:
+            body["max_output_tokens"] = cap_int
+        else:
+            body["max_output_tokens"] = requested_max_int
+    body.pop("max_completion_tokens", None)
+    body.pop("max_tokens", None)
+    return body
+
+
 def _apply_request_rules(
     endpoint_path: str,
     endpoint: Dict[str, Any],
@@ -135,30 +168,19 @@ def _apply_request_rules(
     body = dict(request_body)
 
     if endpoint_path == "/v1/chat/completions":
-        requested_model = body.get("model")
-        model_name = str(requested_model) if requested_model is not None else "_default"
-        model_config = _resolve_model_config(endpoint, model_name)
-        if model_config is None:
-            raise LookupError(f"model_not_supported:{model_name}")
+        body = _apply_output_token_cap(endpoint, body)
+        # Restore max_tokens key for chat completions API compatibility
+        cap_val = body.pop("max_output_tokens", None)
+        if cap_val is not None:
+            body["max_tokens"] = cap_val
 
-        cap = model_config.get("max_output_tokens")
-        if cap is not None:
-            cap_int = int(cap)
-            requested_max = body.get("max_tokens")
-            if requested_max is None:
-                requested_max = body.get("max_completion_tokens")
-            try:
-                requested_max_int = int(requested_max) if requested_max is not None else None
-            except (TypeError, ValueError):
-                requested_max_int = None
+    if endpoint_path == "/v1/responses":
+        body = _apply_output_token_cap(endpoint, body)
 
-            if requested_max_int is None or requested_max_int > cap_int:
-                body["max_tokens"] = cap_int
-            else:
-                body["max_tokens"] = requested_max_int
-        body.pop("max_completion_tokens", None)
+    if endpoint_path in {"/v1/images/generations", "/v1/images/edits"}:
+        body["n"] = 1
 
-    if endpoint_path == "/v1/images/generations":
+    if endpoint_path == "/v1/video/generations":
         body["n"] = 1
 
     return body
@@ -383,9 +405,12 @@ async def create_payment_required(
 
     requires_json = normalized_path in {
         "/v1/chat/completions",
+        "/v1/responses",
         "/v1/images/generations",
         "/v1/audio/speech",
         "/v1/embeddings",
+        "/v1/moderations",
+        "/v1/video/generations",
     }
 
     if requires_json and not is_json:
@@ -522,7 +547,7 @@ async def redeem(preimage: Optional[str] = None) -> Response:
 
     method = endpoint_config.get("method", "POST").upper()
     wants_stream = False
-    if invoice_record.endpoint_path == "/v1/chat/completions":
+    if invoice_record.endpoint_path in {"/v1/chat/completions", "/v1/responses"}:
         try:
             payload = json.loads(invoice_record.request_bytes.decode("utf-8"))
             wants_stream = bool(payload.get("stream"))
@@ -559,8 +584,12 @@ async def redeem(preimage: Optional[str] = None) -> Response:
             media_type=content_type,
         )
 
+    # Video generation and responses API can take longer than text endpoints
+    _slow_paths = {"/v1/video/generations", "/v1/responses", "/v1/images/generations", "/v1/images/edits"}
+    upstream_timeout = 600 if invoice_record.endpoint_path in _slow_paths else 180
+
     try:
-        async with httpx.AsyncClient(timeout=180) as client:
+        async with httpx.AsyncClient(timeout=upstream_timeout) as client:
             upstream_response = await client.request(
                 method=method,
                 url=upstream_url,

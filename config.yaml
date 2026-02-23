@@ -1,0 +1,389 @@
+# alittlebitofmoney – API configuration
+#
+# Pricing calculated at ~$95,000/BTC baseline (1 sat ≈ $0.00095)
+# See PRICING_PRINCIPLES.md for methodology.
+#
+# All prices in satoshis. USD shown in catalog is derived at runtime.
+
+max_request_bytes: 32768        # 32KB default for JSON endpoints
+invoice_expiry: 600             # 10 minutes
+
+phoenix:
+  url: "http://localhost:9740"
+
+btc_price:
+  source: "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
+  cache_seconds: 300
+
+apis:
+  openai:
+    name: "OpenAI"
+    upstream_base: "https://api.openai.com"
+    api_key_env: "OPENAI_API_KEY"
+    auth_header: "Authorization"
+    auth_prefix: "Bearer "
+    extra_headers: {}
+
+    endpoints:
+
+      # ── Chat Completions ──────────────────────────────────────────
+      # POST /v1/chat/completions
+      # Caps: 32KB input (~8K tokens), max_output_tokens per model.
+      # Worst-case = (8K × input_rate) + (max_out × output_rate).
+      - path: "/v1/chat/completions"
+        method: POST
+        description: "Chat completions (text, vision, structured output)"
+        price_type: per_model
+        models:
+
+          # ── GPT-5 family ──
+          # GPT-5.2 – flagship ($1.75/$10 per 1M)
+          # worst: 8K×$1.75/1M + 4K×$10/1M = $0.014+$0.04 = $0.054 → 57 sats. 3x→170
+          gpt-5.2:
+            price_sats: 180
+            max_output_tokens: 4000
+
+          # GPT-5.1 ($1.50/$10 per 1M est.)
+          # worst: ~$0.052 → 55 sats. 3x→165
+          gpt-5.1:
+            price_sats: 160
+            max_output_tokens: 4000
+
+          # GPT-5 ($1.25/$10 per 1M)
+          # worst: 8K×$1.25/1M + 4K×$10/1M = $0.01+$0.04 = $0.05 → 53 sats. 3x→158
+          gpt-5:
+            price_sats: 150
+            max_output_tokens: 4000
+
+          # GPT-5-mini ($0.25/$2 per 1M)
+          # worst: $0.002+$0.008 = $0.01 → 11 sats. 3x→32
+          gpt-5-mini:
+            price_sats: 35
+            max_output_tokens: 4000
+
+          # GPT-5-nano ($0.05/$0.40 per 1M)
+          # worst: $0.0004+$0.0016 = $0.002 → 2 sats. Lightning floor.
+          gpt-5-nano:
+            price_sats: 20
+            max_output_tokens: 4000
+
+          # ── GPT-4.1 family ──
+          # GPT-4.1 ($2/$8 per 1M)
+          # worst: $0.016+$0.032 = $0.048 → 51 sats. 3x→152
+          gpt-4.1:
+            price_sats: 150
+            max_output_tokens: 4000
+
+          # GPT-4.1-mini ($0.40/$1.60 per 1M)
+          # worst: $0.0032+$0.0064 = $0.0096 → 10 sats. 3x→30
+          gpt-4.1-mini:
+            price_sats: 30
+            max_output_tokens: 4000
+
+          # GPT-4.1-nano ($0.10/$0.40 per 1M)
+          # worst: $0.0008+$0.0016 = $0.0024 → 3 sats. Lightning floor.
+          gpt-4.1-nano:
+            price_sats: 20
+            max_output_tokens: 4000
+
+          # ── GPT-4o family ──
+          # GPT-4o ($2.50/$10 per 1M)
+          # worst: $0.02+$0.04 = $0.06 → 63 sats. 3x→190
+          gpt-4o:
+            price_sats: 180
+            max_output_tokens: 4000
+
+          # GPT-4o-mini ($0.15/$0.60 per 1M)
+          # worst: $0.0012+$0.0024 = $0.0036 → 4 sats. Lightning floor.
+          gpt-4o-mini:
+            price_sats: 21
+            max_output_tokens: 4000
+
+          # ── O-series reasoning models ──
+          # These use reasoning tokens billed as output; cap includes reasoning.
+
+          # o4-mini ($1.10/$4.40 per 1M) – max 16K output (incl. reasoning)
+          # worst: $0.0088+$0.0704 = $0.079 → 83 sats. 2x→166
+          o4-mini:
+            price_sats: 200
+            max_output_tokens: 16000
+
+          # o3 ($2/$8 per 1M) – max 16K output
+          # worst: $0.016+$0.128 = $0.144 → 152 sats. 2x→303
+          o3:
+            price_sats: 350
+            max_output_tokens: 16000
+
+          # o3-mini ($1.10/$4.40 per 1M) – max 16K output
+          # worst: $0.0088+$0.0704 = $0.079 → 83 sats. 2x→166
+          o3-mini:
+            price_sats: 200
+            max_output_tokens: 16000
+
+          # o3-pro ($20/$80 per 1M) – max 8K output (expensive model, tighter cap)
+          # worst: $0.16+$0.64 = $0.80 → 842 sats. 1.5x→1263
+          o3-pro:
+            price_sats: 1500
+            max_output_tokens: 8000
+
+          # o1 ($15/$60 per 1M) – max 8K output
+          # worst: $0.12+$0.48 = $0.60 → 632 sats. 2x→1263
+          o1:
+            price_sats: 1500
+            max_output_tokens: 8000
+
+          # o1-mini ($1.10/$4.40 per 1M est.) – max 16K output
+          o1-mini:
+            price_sats: 200
+            max_output_tokens: 16000
+
+          # o1-pro ($150/$600 per 1M) – max 4K output (very expensive, tight cap)
+          # worst: $1.20+$2.40 = $3.60 → 3789 sats. 1.5x→5684
+          o1-pro:
+            price_sats: 6000
+            max_output_tokens: 4000
+
+          # Default / fallback
+          _default:
+            price_sats: 150
+            max_output_tokens: 4000
+
+
+      # ── Responses API ─────────────────────────────────────────────
+      # POST /v1/responses
+      # The new agentic API. Supports tools (web search, file search,
+      # code interpreter, image gen, video gen). Priced per-model since
+      # the underlying model determines token costs. Tool usage costs
+      # are absorbed into our markup.
+      - path: "/v1/responses"
+        method: POST
+        description: "Responses API (agentic, tools, web search, video generation via Sora)"
+        price_type: per_model
+        models:
+          gpt-5.2:
+            price_sats: 250
+            max_output_tokens: 4000
+          gpt-5.1:
+            price_sats: 220
+            max_output_tokens: 4000
+          gpt-5:
+            price_sats: 200
+            max_output_tokens: 4000
+          gpt-5-mini:
+            price_sats: 50
+            max_output_tokens: 4000
+          gpt-5-nano:
+            price_sats: 25
+            max_output_tokens: 4000
+          gpt-4.1:
+            price_sats: 200
+            max_output_tokens: 4000
+          gpt-4.1-mini:
+            price_sats: 50
+            max_output_tokens: 4000
+          gpt-4.1-nano:
+            price_sats: 25
+            max_output_tokens: 4000
+          gpt-4o:
+            price_sats: 250
+            max_output_tokens: 4000
+          gpt-4o-mini:
+            price_sats: 30
+            max_output_tokens: 4000
+          o4-mini:
+            price_sats: 300
+            max_output_tokens: 16000
+          o3:
+            price_sats: 500
+            max_output_tokens: 16000
+          o3-mini:
+            price_sats: 300
+            max_output_tokens: 16000
+          o3-pro:
+            price_sats: 2000
+            max_output_tokens: 8000
+          o1:
+            price_sats: 2000
+            max_output_tokens: 8000
+          o1-mini:
+            price_sats: 300
+            max_output_tokens: 16000
+          o1-pro:
+            price_sats: 8000
+            max_output_tokens: 4000
+          _default:
+            price_sats: 200
+            max_output_tokens: 4000
+
+
+      # ── Image Generation ──────────────────────────────────────────
+      # POST /v1/images/generations
+      # Forced n=1. Worst case is one high-quality large image.
+      # gpt-image-1.5 high 1536×1024 ≈ $0.20 → 211 sats. 2x→421
+      # dall-e-3 HD 1024×1792 ≈ $0.12 → 126 sats. 2x→252
+      - path: "/v1/images/generations"
+        method: POST
+        description: "Generate images (DALL-E, GPT Image)"
+        price_type: per_model
+        models:
+          gpt-image-1.5:
+            price_sats: 500
+          gpt-image-1:
+            price_sats: 500
+          gpt-image-1-mini:
+            price_sats: 120
+          dall-e-3:
+            price_sats: 300
+          dall-e-2:
+            price_sats: 60
+          _default:
+            price_sats: 500
+
+
+      # ── Image Editing ─────────────────────────────────────────────
+      # POST /v1/images/edits
+      # Similar pricing to generation. Accepts multipart form data.
+      - path: "/v1/images/edits"
+        method: POST
+        description: "Edit images (inpainting, outpainting)"
+        max_request_bytes: 4194304  # 4MB for image upload
+        price_type: per_model
+        models:
+          gpt-image-1.5:
+            price_sats: 500
+          gpt-image-1:
+            price_sats: 500
+          gpt-image-1-mini:
+            price_sats: 120
+          dall-e-2:
+            price_sats: 60
+          _default:
+            price_sats: 500
+
+
+      # ── Image Variations ──────────────────────────────────────────
+      # POST /v1/images/variations
+      # Only DALL-E 2 supports this. Accepts multipart form data.
+      - path: "/v1/images/variations"
+        method: POST
+        description: "Generate image variations (DALL-E 2)"
+        max_request_bytes: 4194304  # 4MB for image upload
+        price_type: flat
+        price_sats: 60
+
+
+      # ── Text-to-Speech ────────────────────────────────────────────
+      # POST /v1/audio/speech
+      # Cap: 16KB input ≈ 4000 chars.
+      # TTS-1: $15/1M chars → worst $0.06 → 63 sats. 3x→189
+      # TTS-1-HD: $30/1M chars → worst $0.12 → 126 sats. 2x→252
+      # gpt-4o-mini-tts: ~$0.015/min ≈ $0.06 per 4K chars → 63 sats. 3x→189
+      - path: "/v1/audio/speech"
+        method: POST
+        description: "Text-to-speech (multiple voices)"
+        max_request_bytes: 16384  # 16KB ≈ 4000 characters
+        price_type: per_model
+        models:
+          tts-1:
+            price_sats: 200
+          tts-1-hd:
+            price_sats: 350
+          gpt-4o-mini-tts:
+            price_sats: 200
+          _default:
+            price_sats: 200
+
+
+      # ── Audio Transcription ───────────────────────────────────────
+      # POST /v1/audio/transcriptions
+      # Cap: 10MB audio ≈ 10 min.
+      # whisper-1: $0.006/min × 10 = $0.06 → 63 sats. 3x→189
+      # gpt-4o-transcribe: $0.006/min × 10 = $0.06 → 63 sats. 3x→189
+      # gpt-4o-mini-transcribe: $0.003/min × 10 = $0.03 → 32 sats. 3x→95
+      - path: "/v1/audio/transcriptions"
+        method: POST
+        description: "Transcribe audio to text (Whisper, GPT-4o)"
+        max_request_bytes: 10485760  # 10MB
+        price_type: per_model
+        models:
+          whisper-1:
+            price_sats: 200
+          gpt-4o-transcribe:
+            price_sats: 200
+          gpt-4o-mini-transcribe:
+            price_sats: 100
+          _default:
+            price_sats: 200
+
+
+      # ── Audio Translation ─────────────────────────────────────────
+      # POST /v1/audio/translations
+      # Translates audio to English text. Same pricing as transcription.
+      - path: "/v1/audio/translations"
+        method: POST
+        description: "Translate audio to English text"
+        max_request_bytes: 10485760  # 10MB
+        price_type: flat
+        price_sats: 200
+
+
+      # ── Embeddings ────────────────────────────────────────────────
+      # POST /v1/embeddings
+      # Cap: 32KB input ≈ 8K tokens.
+      # text-embedding-3-small: $0.02/1M × 8K = $0.00016 → <1 sat. Floor.
+      # text-embedding-3-large: $0.13/1M × 8K = $0.00104 → 1 sat. Floor.
+      - path: "/v1/embeddings"
+        method: POST
+        description: "Generate text embeddings"
+        price_type: per_model
+        models:
+          text-embedding-3-small:
+            price_sats: 21
+          text-embedding-3-large:
+            price_sats: 21
+          text-embedding-ada-002:
+            price_sats: 21
+          _default:
+            price_sats: 21
+
+
+      # ── Moderations ───────────────────────────────────────────────
+      # POST /v1/moderations
+      # Free upstream. We charge the Lightning floor for infra costs.
+      - path: "/v1/moderations"
+        method: POST
+        description: "Content moderation (classify text for policy violations)"
+        price_type: per_model
+        models:
+          omni-moderation-latest:
+            price_sats: 21
+          text-moderation-latest:
+            price_sats: 21
+          text-moderation-stable:
+            price_sats: 21
+          _default:
+            price_sats: 21
+
+
+      # ── Video Generation (via Sora) ───────────────────────────────
+      # POST /v1/video/generations
+      # Sora 2: $0.10/sec × 12s max = $1.20 → 1263 sats. 2x→2526
+      # Sora 2 Pro: $0.50/sec × 25s max = $12.50 → very expensive
+      # We cap at standard quality for now with reasonable duration limits.
+      - path: "/v1/video/generations"
+        method: POST
+        description: "Generate videos (Sora 2)"
+        price_type: per_model
+        models:
+          # Sora 2 standard — up to 12s at 720p
+          # worst: 12s × $0.10 = $1.20 → 1263 sats. 2x → 2526
+          sora-2:
+            price_sats: 3000
+
+          # Sora 2 Pro — up to 10s at 720p via API
+          # worst: 10s × $0.30 = $3.00 → 3158 sats. 2x → 6316
+          sora-2-pro:
+            price_sats: 7000
+
+          _default:
+            price_sats: 3000
