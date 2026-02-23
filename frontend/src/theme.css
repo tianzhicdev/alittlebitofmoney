@@ -504,10 +504,12 @@ a {
 }
 
 .endpoint-card {
-  border: 1px solid rgba(121, 185, 230, 0.26);
-  border-radius: 12px;
-  padding: 0.8rem;
-  background: rgba(9, 19, 30, 0.58);
+  padding: 0.8rem 0;
+  border-bottom: 1px solid rgba(121, 185, 230, 0.12);
+}
+
+.endpoint-card:last-child {
+  border-bottom: none;
 }
 
 .method-tag {
