@@ -14,14 +14,16 @@ const RESPONSE_SHAPE = `{
   "expires_in": 600
 }`;
 
-const QUICK_START = `# 1. Send request
-curl -s -X POST https://alittlebitofmoney.com/openai/v1/chat/completions \\
-  -H "Content-Type: application/json" \\
-  -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"hello"}]}' | jq .
-
-# 2. Copy the invoice, pay with your wallet (Phoenix, Muun, Zeus, Breez, etc.)
-# 3. Paste the preimage from your wallet payment details
-curl -s "https://alittlebitofmoney.com/redeem?preimage=YOUR_PREIMAGE_HERE" | jq .`;
+const QUICK_START = `PHOENIX_WALLET_PASSWORD=your-phoenix-password
+# Step 1: Request -> 402 + invoice
+INVOICE=$(curl -sS -X POST https://alittlebitofmoney.com/openai/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"hello bitcoin world"}]}' | jq -r '.invoice')
+# Step 2: Pay (replace with your wallet integration)
+PREIMAGE=$(curl -sS -X POST http://localhost:9741/payinvoice  -u ":$PHOENIX_WALLET_PASSWORD" --data-urlencode "invoice=$INVOICE" | jq -r '.paymentPreimage')
+# Step 3: Redeem
+curl -sS "https://alittlebitofmoney.com/redeem?preimage=$PREIMAGE" | jq -r '.choices[0].message.content'
+Hello! How can I assist you in the Bitcoin world today?`;
 
 const AUTOMATION_TABS = [
   {
@@ -134,12 +136,6 @@ export default function Doc() {
           language="bash"
           code={QUICK_START}
         />
-      </section>
-
-      <section className="section reveal">
-        <h2 className="section-title">Coding Example</h2>
-        <p className="section-intro">Use this 3-step pattern in your app and replace the wallet call only.</p>
-        <CodeTabs tabs={AUTOMATION_TABS} />
       </section>
 
       <section className="section reveal">
