@@ -5,7 +5,7 @@
 *.key
 *.pem
 secrets/
-config.yaml
+config.yaml.local
 
 # Python
 __pycache__/

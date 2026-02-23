@@ -223,6 +223,13 @@
       };
     }
 
+    if (endpointPath === "/v1/responses") {
+      return {
+        model: "gpt-4o-mini",
+        input: "Explain Bitcoin Lightning in one sentence."
+      };
+    }
+
     if (endpointPath === "/v1/images/generations") {
       return {
         model: "gpt-image-1-mini",
@@ -246,21 +253,89 @@
       };
     }
 
+    if (endpointPath === "/v1/moderations") {
+      return {
+        model: "omni-moderation-latest",
+        input: "This is a test message for content moderation."
+      };
+    }
+
+    if (endpointPath === "/v1/video/generations") {
+      return {
+        model: "sora-2",
+        prompt: "A golden bitcoin spinning slowly against a starry night sky."
+      };
+    }
+
     return {
       model: "gpt-4o-mini"
     };
   }
 
+  function multipartSnippetConfig(endpointPath) {
+    var configs = {
+      "/v1/audio/transcriptions": {
+        model: "whisper-1",
+        fileField: "file",
+        fileName: "sample.mp3",
+        fileComment: "// audioFile should be a Blob/File from your app"
+      },
+      "/v1/audio/translations": {
+        model: "whisper-1",
+        fileField: "file",
+        fileName: "sample.mp3",
+        fileComment: "// audioFile should be a Blob/File from your app"
+      },
+      "/v1/images/edits": {
+        model: "gpt-image-1",
+        fileField: "image",
+        fileName: "image.png",
+        extraFields: ['"prompt=Add lightning bolts to the background"'],
+        extraData: {prompt: "Add lightning bolts to the background"},
+        fileComment: "// imageFile should be a Blob/File from your app"
+      },
+      "/v1/images/variations": {
+        model: "dall-e-2",
+        fileField: "image",
+        fileName: "image.png",
+        fileComment: "// imageFile should be a Blob/File from your app"
+      }
+    };
+    return configs[endpointPath] || null;
+  }
+
   function buildEndpointSnippets(apiName, endpointPath) {
     var route = endpointRoute(apiName, endpointPath);
-    var isMultipart = endpointPath === "/v1/audio/transcriptions";
+    var multipartCfg = multipartSnippetConfig(endpointPath);
 
-    if (isMultipart) {
+    if (multipartCfg) {
+      var curlForms = '-F "model=' + multipartCfg.model + '" -F "' + multipartCfg.fileField + '=@' + multipartCfg.fileName + '"';
+      if (multipartCfg.extraFields) {
+        curlForms += multipartCfg.extraFields.map(function(f) { return ' -F ' + f; }).join('');
+      }
+      var pyData = '{"model": "' + multipartCfg.model + '"';
+      if (multipartCfg.extraData) {
+        Object.keys(multipartCfg.extraData).forEach(function(k) {
+          pyData += ', "' + k + '": "' + multipartCfg.extraData[k] + '"';
+        });
+      }
+      pyData += '}';
+      var jsFormLines = [
+        'form.append("model", "' + multipartCfg.model + '");',
+        multipartCfg.fileComment,
+        'form.append("' + multipartCfg.fileField + '", ' + multipartCfg.fileField + 'File, "' + multipartCfg.fileName + '");'
+      ];
+      if (multipartCfg.extraData) {
+        Object.keys(multipartCfg.extraData).forEach(function(k) {
+          jsFormLines.push('form.append("' + k + '", "' + multipartCfg.extraData[k] + '");');
+        });
+      }
+
       return {
         curl: [
           'API="https://alittlebitofmoney.com"',
           "",
-          'STEP1=$(curl -s -X POST "$API' + route + '" -F "model=whisper-1" -F "file=@sample.mp3")',
+          'STEP1=$(curl -s -X POST "$API' + route + '" ' + curlForms + ')',
           "",
           'INVOICE=$(echo "$STEP1" | jq -r \'.invoice\')',
           'echo "$INVOICE"',
@@ -275,11 +350,11 @@
           'API = "https://alittlebitofmoney.com"',
           'route = "' + route + '"',
           "",
-          'with open("sample.mp3", "rb") as audio_file:',
+          'with open("' + multipartCfg.fileName + '", "rb") as upload_file:',
           "    step1 = requests.post(",
           "        f\"{API}{route}\",",
-          '        data={"model": "whisper-1"},',
-          '        files={"file": audio_file},',
+          "        data=" + pyData + ",",
+          '        files={"' + multipartCfg.fileField + '": upload_file},',
           "    )",
           "",
           'invoice = step1.json()["invoice"]',
@@ -295,9 +370,7 @@
           'const route = "' + route + '";',
           "",
           "const form = new FormData();",
-          'form.append("model", "whisper-1");',
-          "// audioFile should be a Blob/File from your app",
-          'form.append("file", audioFile, "sample.mp3");',
+        ].concat(jsFormLines).concat([
           "",
           "const step1 = await fetch(`${API}${route}`, {",
           '  method: "POST",',
@@ -310,7 +383,7 @@
           'const preimage = prompt("Preimage:");',
           'const result = await fetch(`${API}/redeem?preimage=${preimage}`);',
           "console.log(await result.json());"
-        ].join("\n")
+        ]).join("\n")
       };
     }
 

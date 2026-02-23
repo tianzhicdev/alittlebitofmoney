@@ -174,7 +174,7 @@ pay_invoice() {
 requires_json_path() {
   local endpoint_path="$1"
   case "$endpoint_path" in
-    "/v1/chat/completions"|"/v1/images/generations"|"/v1/audio/speech"|"/v1/embeddings")
+    "/v1/chat/completions"|"/v1/responses"|"/v1/images/generations"|"/v1/audio/speech"|"/v1/embeddings"|"/v1/moderations"|"/v1/video/generations")
       return 0
       ;;
     *)
@@ -189,8 +189,17 @@ expected_error_keyword_for_path() {
     "/v1/chat/completions")
       echo "messages"
       ;;
+    "/v1/responses")
+      echo "model"
+      ;;
     "/v1/images/generations")
       echo "prompt"
+      ;;
+    "/v1/images/edits")
+      echo "image"
+      ;;
+    "/v1/images/variations")
+      echo "image"
       ;;
     "/v1/audio/speech")
       echo "input"
@@ -198,8 +207,17 @@ expected_error_keyword_for_path() {
     "/v1/audio/transcriptions")
       echo "file"
       ;;
+    "/v1/audio/translations")
+      echo "file"
+      ;;
     "/v1/embeddings")
       echo "input"
+      ;;
+    "/v1/moderations")
+      echo "input"
+      ;;
+    "/v1/video/generations")
+      echo ""
       ;;
     *)
       echo ""
@@ -213,12 +231,15 @@ send_upstream_invalid_request() {
   local model_hint="$3"
 
   case "$endpoint_path" in
-    "/v1/chat/completions"|"/v1/images/generations"|"/v1/audio/speech"|"/v1/embeddings")
+    "/v1/chat/completions"|"/v1/responses"|"/v1/images/generations"|"/v1/audio/speech"|"/v1/embeddings"|"/v1/moderations"|"/v1/video/generations")
       [[ -n "$model_hint" ]] || fail "No model hint available for ${endpoint_path}"
       post_json "$endpoint_url" "$(jq -cn --arg model "$model_hint" '{model:$model}')"
       ;;
-    "/v1/audio/transcriptions")
+    "/v1/audio/transcriptions"|"/v1/audio/translations")
       post_multipart "$endpoint_url" "model=whisper-1"
+      ;;
+    "/v1/images/edits"|"/v1/images/variations")
+      post_multipart "$endpoint_url" "model=${model_hint:-dall-e-2}"
       ;;
     *)
       fail "No upstream-invalid request template for endpoint path ${endpoint_path}"
