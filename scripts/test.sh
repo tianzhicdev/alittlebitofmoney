@@ -20,7 +20,7 @@ fi
 TEST_PHOENIX_URL="${PHOENIX_TEST_URL:-http://localhost:9741}"
 
 echo "=== Step 1: Request API call (expect 402) ==="
-STEP1_RAW=$(curl -sS -w "\n%{http_code}" -X POST "$BASE_URL/v1/openai/chat/completions" \
+STEP1_RAW=$(curl -sS -w "\n%{http_code}" -X POST "$BASE_URL/openai/v1/chat/completions" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "gpt-4o-mini",

@@ -204,6 +204,8 @@
               "</div>",
               description ? "<p>" + escapeHtml(description) + "</p>" : "",
               endpoint.price_type === "per_model" ? priceHtml : "",
+              description ? "<p>" + escapeHtml(description) + "</p>" : "",
+              endpoint.price_type === "per_model" ? priceHtml : "",
               "</li>"
             ].join("");
           })

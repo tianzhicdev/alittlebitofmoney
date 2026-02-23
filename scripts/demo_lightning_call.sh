@@ -14,7 +14,7 @@ if ! command -v jq >/dev/null 2>&1; then
 fi
 
 echo "=== Step 1: Create API request and get invoice ==="
-STEP1_RAW=$(curl -sS -w "\n%{http_code}" -X POST "$BASE_URL/v1/openai/chat/completions" \
+STEP1_RAW=$(curl -sS -w "\n%{http_code}" -X POST "$BASE_URL/openai/v1/chat/completions" \
   -H "Content-Type: application/json" \
   -d "$REQUEST_BODY")
 

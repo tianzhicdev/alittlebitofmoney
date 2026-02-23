@@ -189,7 +189,6 @@ def _build_catalog(
                 "method": endpoint.get("method", "POST"),
                 "price_type": endpoint.get("price_type"),
                 "description": endpoint.get("description", ""),
-                "max_request_bytes": _max_request_bytes(endpoint),
             }
 
             if endpoint.get("price_type") == "flat":
@@ -203,17 +202,13 @@ def _build_catalog(
                 for model_name, model_entry in endpoint.get("models", {}).items():
                     if isinstance(model_entry, dict):
                         price_sats = int(model_entry.get("price_sats", 0))
-                        max_output_tokens = model_entry.get("max_output_tokens")
                     else:
                         price_sats = int(model_entry)
-                        max_output_tokens = None
 
                     model_item: Dict[str, Any] = {"price_sats": price_sats}
                     usd_cents = _sats_to_usd_cents(price_sats, btc_usd)
                     if usd_cents is not None:
                         model_item["price_usd_cents"] = usd_cents
-                    if max_output_tokens is not None:
-                        model_item["max_output_tokens"] = int(max_output_tokens)
                     models[model_name] = model_item
 
                 item["models"] = models
@@ -351,7 +346,8 @@ async def health() -> Response:
     )
 
 
-@app.post("/v1/{api_name}/{endpoint_path:path}")
+@app.post("/{api_name}/{endpoint_path:path}")
+@app.post("/v1/{api_name}/{endpoint_path:path}", include_in_schema=False)
 async def create_payment_required(
     api_name: str,
     endpoint_path: str,

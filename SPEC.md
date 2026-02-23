@@ -9,7 +9,7 @@ A stateless API proxy that accepts Lightning payments per request. No accounts, 
 ```
 Client
   │
-  ├─ 1. POST /v1/openai/chat/completions  { body }
+  ├─ 1. POST /openai/v1/chat/completions  { body }
   ├─ 2. Server returns 402 + invoice + payment_hash
   ├─ 3. Client pays invoice with any LN wallet
   ├─ 4. GET /redeem?preimage=...
@@ -163,7 +163,7 @@ GET /redeem?preimage=789xyz...
 ## API Routes
 
 ```
-POST /v1/{api_name}/*          → Returns 402 + invoice (always)
+POST /{api_name}/*             → Returns 402 + invoice (always)
 GET  /redeem                  → Verify payment, proxy stored request, return response
      Query params: preimage={hex}
 GET  /api/catalog              → List APIs + prices in sats
@@ -271,7 +271,7 @@ TEST_PHOENIX="http://localhost:9741"
 TEST_PHOENIX_PW="$(cat .env.test | grep PHOENIX_TEST_PASSWORD | cut -d= -f2)"
 
 echo "=== Step 1: Request API call ==="
-RESPONSE=$(curl -s -X POST "$BASE_URL/v1/openai/chat/completions" \
+RESPONSE=$(curl -s -X POST "$BASE_URL/openai/v1/chat/completions" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "gpt-4o-mini",
