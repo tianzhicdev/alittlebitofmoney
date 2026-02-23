@@ -214,6 +214,73 @@ def _apply_request_rules(
     return body
 
 
+_REQUIRED_FIELDS: Dict[str, list[tuple[str, Any]]] = {
+    "/v1/chat/completions": [("messages", list)],
+    "/v1/responses": [("input", (str, list))],
+    "/v1/images/generations": [("prompt", str)],
+    "/v1/audio/speech": [("input", str), ("voice", str)],
+    "/v1/embeddings": [("input", (str, list))],
+    "/v1/moderations": [("input", (str, list))],
+    "/v1/video/generations": [("prompt", str)],
+}
+
+
+def _expected_type_label(expected_type: Any) -> str:
+    if isinstance(expected_type, tuple):
+        return " or ".join(t.__name__ for t in expected_type)
+    if isinstance(expected_type, type):
+        return expected_type.__name__
+    return "valid type"
+
+
+def _validate_required_fields(
+    normalized_path: str,
+    request_body: Dict[str, Any],
+) -> Optional[JSONResponse]:
+    """
+    Validate required JSON fields before issuing an invoice.
+
+    Multipart endpoints (audio/transcriptions, audio/translations, images/edits,
+    images/variations) are intentionally not pre-validated here because the
+    request body is stored as raw multipart bytes, not parsed into JSON.
+    """
+    requirements = _REQUIRED_FIELDS.get(normalized_path)
+    if not requirements:
+        return None
+
+    for field_name, expected_type in requirements:
+        value = request_body.get(field_name)
+        if value is None:
+            return _build_error(
+                400,
+                "missing_required_field",
+                f"Required field '{field_name}' is missing",
+            )
+
+        if not isinstance(value, expected_type):
+            return _build_error(
+                400,
+                "invalid_field_type",
+                f"Field '{field_name}' must be {_expected_type_label(expected_type)}",
+            )
+
+        if isinstance(value, list) and len(value) == 0:
+            return _build_error(
+                400,
+                "invalid_field_value",
+                f"Field '{field_name}' must not be empty",
+            )
+
+        if isinstance(value, str) and not value.strip():
+            return _build_error(
+                400,
+                "invalid_field_value",
+                f"Field '{field_name}' must not be empty",
+            )
+
+    return None
+
+
 def _sats_to_usd_cents(sats: int, btc_usd: Optional[float]) -> Optional[float]:
     if btc_usd is None:
         return None
@@ -462,6 +529,11 @@ async def create_payment_required(
                 "model_not_supported",
                 f"Model '{model_name}' is not available",
             )
+
+        validation_error = _validate_required_fields(normalized_path, request_body)
+        if validation_error is not None:
+            return validation_error
+
         stored_body_bytes = json.dumps(
             request_body, separators=(",", ":"), ensure_ascii=False
         ).encode("utf-8")

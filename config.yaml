@@ -41,6 +41,14 @@ apis:
             messages:
               - role: "user"
                 content: "Say hello in five words."
+          e2e:
+            required_field: "messages"
+            invalid_body:
+              model: "not-a-real-model"
+              messages:
+                - role: "user"
+                  content: "Say hello in five words."
+            error_keyword: "model"
         models:
 
           # ── GPT-5 family ──
@@ -171,6 +179,12 @@ apis:
           body:
             model: "gpt-4o-mini"
             input: "Explain Bitcoin Lightning in one sentence."
+          e2e:
+            required_field: "input"
+            invalid_body:
+              model: "not-a-real-model"
+              input: "Explain Bitcoin Lightning in one sentence."
+            error_keyword: "model"
         models:
           gpt-5.2:
             price_sats: 250
@@ -243,6 +257,13 @@ apis:
             model: "gpt-image-1-mini"
             prompt: "A neon bitcoin logo over brushed steel."
             size: "1024x1024"
+          e2e:
+            required_field: "prompt"
+            invalid_body:
+              model: "not-a-real-model"
+              prompt: "A neon bitcoin logo over brushed steel."
+              size: "1024x1024"
+            error_keyword: "model"
         models:
           gpt-image-1.5:
             price_sats: 500
@@ -275,6 +296,12 @@ apis:
           file_field: "image"
           file_name: "image.png"
           file_comment: "image file (png)"
+          e2e:
+            invalid_fields:
+              model: "gpt-image-1"
+              image: "@__E2E_TEXT_FILE__"
+              prompt: "Add lightning bolts to the background"
+            error_keyword: "image"
         models:
           gpt-image-1.5:
             price_sats: 500
@@ -305,6 +332,11 @@ apis:
           file_field: "image"
           file_name: "image.png"
           file_comment: "image file (png)"
+          e2e:
+            invalid_fields:
+              model: "dall-e-2"
+              image: "@__E2E_TEXT_FILE__"
+            error_keyword: "image"
 
 
       # ── Text-to-Speech ────────────────────────────────────────────
@@ -324,6 +356,13 @@ apis:
             model: "tts-1"
             voice: "alloy"
             input: "Hello from the Lightning Network."
+          e2e:
+            required_field: "input"
+            invalid_body:
+              model: "not-a-real-model"
+              voice: "alloy"
+              input: "Hello from the Lightning Network."
+            error_keyword: "model"
         models:
           tts-1:
             price_sats: 200
@@ -354,6 +393,11 @@ apis:
           file_field: "file"
           file_name: "sample.mp3"
           file_comment: "audio file (mp3, wav, m4a, etc.)"
+          e2e:
+            invalid_fields:
+              model: "whisper-1"
+              file: "@__E2E_TEXT_FILE__"
+            error_keyword: "file"
         models:
           whisper-1:
             price_sats: 200
@@ -382,6 +426,11 @@ apis:
           file_field: "file"
           file_name: "sample.mp3"
           file_comment: "audio file (mp3, wav, m4a, etc.)"
+          e2e:
+            invalid_fields:
+              model: "whisper-1"
+              file: "@__E2E_TEXT_FILE__"
+            error_keyword: "file"
 
 
       # ── Embeddings ────────────────────────────────────────────────
@@ -398,6 +447,12 @@ apis:
           body:
             model: "text-embedding-3-small"
             input: "Lightning invoices and preimages"
+          e2e:
+            required_field: "input"
+            invalid_body:
+              model: "not-a-real-model"
+              input: "Lightning invoices and preimages"
+            error_keyword: "model"
         models:
           text-embedding-3-small:
             price_sats: 21
@@ -421,6 +476,12 @@ apis:
           body:
             model: "omni-moderation-latest"
             input: "This is a test message for content moderation."
+          e2e:
+            required_field: "input"
+            invalid_body:
+              model: "not-a-real-model"
+              input: "This is a test message for content moderation."
+            error_keyword: "model"
         models:
           omni-moderation-latest:
             price_sats: 21
@@ -446,6 +507,12 @@ apis:
           body:
             model: "sora-2"
             prompt: "A golden bitcoin spinning slowly against a starry night sky."
+          e2e:
+            required_field: "prompt"
+            invalid_body:
+              model: "not-a-real-model"
+              prompt: "A golden bitcoin spinning slowly against a starry night sky."
+            require_error_message: false
         models:
           # Sora 2 standard — up to 12s at 720p
           # worst: 12s × $0.10 = $1.20 → 1263 sats. 2x → 2526

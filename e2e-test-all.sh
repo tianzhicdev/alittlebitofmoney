@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # End-to-end test for ALL configured API endpoints discovered from /api/catalog.
-# This script is intended to run on the captain/VPS host where phoenixd-test is reachable.
+# Endpoint examples from config drive BOTH UI code snippets and this test script.
 
 BASE_URL="${BASE_URL:-${1:-https://alittlebitofmoney.com}}"
 BASE_URL="${BASE_URL%/}"
@@ -42,6 +42,9 @@ fi
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
+E2E_TEXT_FILE="${TMP_DIR}/e2e-invalid.txt"
+printf 'this is not a valid media payload for upstream APIs\n' > "$E2E_TEXT_FILE"
+
 LAST_STATUS=""
 LAST_BODY_FILE=""
 LAST_HEADERS_FILE=""
@@ -50,6 +53,7 @@ LAST_REQUEST_LABEL=""
 run_http() {
   local label="$1"
   shift
+
   local req_id
   req_id="$(date +%s%N)"
   LAST_BODY_FILE="${TMP_DIR}/body_${req_id}.txt"
@@ -89,12 +93,55 @@ post_text_plain() {
 post_multipart() {
   local url="$1"
   shift
+
   local form_args=()
   while (($#)); do
     form_args+=(-F "$1")
     shift
   done
+
   run_http "POST MULTIPART ${url}" -X POST "$url" "${form_args[@]}"
+}
+
+resolve_file_placeholder() {
+  local raw_path="$1"
+  case "$raw_path" in
+    "__E2E_TEXT_FILE__")
+      printf '%s' "$E2E_TEXT_FILE"
+      ;;
+    *)
+      printf '%s' "$raw_path"
+      ;;
+  esac
+}
+
+post_multipart_from_json_fields() {
+  local url="$1"
+  local fields_json="$2"
+
+  local form_entries=()
+  mapfile -t form_entries < <(jq -cr 'to_entries[]?' <<<"$fields_json")
+
+  local form_args=()
+  local entry
+  for entry in "${form_entries[@]}"; do
+    local key
+    local value
+    key="$(jq -r '.key' <<<"$entry")"
+    value="$(jq -r '.value | tostring' <<<"$entry")"
+
+    if [[ "$value" == @* ]]; then
+      local file_ref file_path
+      file_ref="${value#@}"
+      file_path="$(resolve_file_placeholder "$file_ref")"
+      [[ -f "$file_path" ]] || fail "Multipart file does not exist: ${file_path}"
+      form_args+=("${key}=@${file_path}")
+    else
+      form_args+=("${key}=${value}")
+    fi
+  done
+
+  post_multipart "$url" "${form_args[@]}"
 }
 
 redeem_with_preimage() {
@@ -113,6 +160,15 @@ assert_status_4xx() {
   if (( LAST_STATUS < 400 || LAST_STATUS >= 500 )); then
     fail "Expected HTTP 4xx, got ${LAST_STATUS}. Body: $(cat "$LAST_BODY_FILE")"
   fi
+}
+
+assert_redeem_status() {
+  local expected="$1"
+  if [[ "$expected" == "4xx" ]]; then
+    assert_status_4xx
+    return
+  fi
+  assert_status "$expected"
 }
 
 json_required() {
@@ -140,6 +196,16 @@ header_value() {
   printf '%s' "$value"
 }
 
+extract_error_message() {
+  local msg
+  msg="$(jq -er '.error.message // .error // empty' "$LAST_BODY_FILE" 2>/dev/null || true)"
+  if [[ -n "$msg" ]]; then
+    printf '%s' "$msg"
+    return
+  fi
+  tr '\n' ' ' < "$LAST_BODY_FILE"
+}
+
 pay_invoice() {
   local invoice="$1"
   local pay_body_file="${TMP_DIR}/pay_$(date +%s%N).json"
@@ -165,86 +231,12 @@ pay_invoice() {
   local preimage
   preimage="$(jq -er '.paymentPreimage // empty' "$pay_body_file" 2>/dev/null || true)"
   [[ -n "$preimage" ]] || fail "Pay invoice returned no paymentPreimage. Response: $(cat "$pay_body_file")"
+
   if [[ "$VERBOSE" == "1" ]]; then
     echo "Preimage: ${preimage}" >&2
   fi
+
   printf '%s' "$preimage"
-}
-
-requires_json_path() {
-  local endpoint_path="$1"
-  case "$endpoint_path" in
-    "/v1/chat/completions"|"/v1/responses"|"/v1/images/generations"|"/v1/audio/speech"|"/v1/embeddings"|"/v1/moderations"|"/v1/video/generations")
-      return 0
-      ;;
-    *)
-      return 1
-      ;;
-  esac
-}
-
-expected_error_keyword_for_path() {
-  local endpoint_path="$1"
-  case "$endpoint_path" in
-    "/v1/chat/completions")
-      echo "messages"
-      ;;
-    "/v1/responses")
-      echo "model"
-      ;;
-    "/v1/images/generations")
-      echo "prompt"
-      ;;
-    "/v1/images/edits")
-      echo "image"
-      ;;
-    "/v1/images/variations")
-      echo "image"
-      ;;
-    "/v1/audio/speech")
-      echo "input"
-      ;;
-    "/v1/audio/transcriptions")
-      echo "file"
-      ;;
-    "/v1/audio/translations")
-      echo "file"
-      ;;
-    "/v1/embeddings")
-      echo "input"
-      ;;
-    "/v1/moderations")
-      echo "input"
-      ;;
-    "/v1/video/generations")
-      echo ""
-      ;;
-    *)
-      echo ""
-      ;;
-  esac
-}
-
-send_upstream_invalid_request() {
-  local endpoint_url="$1"
-  local endpoint_path="$2"
-  local model_hint="$3"
-
-  case "$endpoint_path" in
-    "/v1/chat/completions"|"/v1/responses"|"/v1/images/generations"|"/v1/audio/speech"|"/v1/embeddings"|"/v1/moderations"|"/v1/video/generations")
-      [[ -n "$model_hint" ]] || fail "No model hint available for ${endpoint_path}"
-      post_json "$endpoint_url" "$(jq -cn --arg model "$model_hint" '{model:$model}')"
-      ;;
-    "/v1/audio/transcriptions"|"/v1/audio/translations")
-      post_multipart "$endpoint_url" "model=whisper-1"
-      ;;
-    "/v1/images/edits"|"/v1/images/variations")
-      post_multipart "$endpoint_url" "model=${model_hint:-dall-e-2}"
-      ;;
-    *)
-      fail "No upstream-invalid request template for endpoint path ${endpoint_path}"
-      ;;
-  esac
 }
 
 log "Fetching API catalog from ${CATALOG_URL}"
@@ -252,39 +244,35 @@ CATALOG_FILE="${TMP_DIR}/catalog.json"
 curl -sS "${CATALOG_URL}" > "$CATALOG_FILE"
 jq -e . "$CATALOG_FILE" >/dev/null || fail "Catalog response is not valid JSON"
 
-mapfile -t ENDPOINT_ROWS < <(
-  jq -r '
-    .apis
-    | to_entries[]
-    | .key as $api_name
-    | .value.endpoints[]
-    | [
-        $api_name,
-        (.method // "POST" | ascii_upcase),
-        .path,
-        (.price_type // ""),
-        (
-          if .models then
-            (.models | keys | map(select(. != "_default")) | .[0] // "_default")
-          else
-            ""
-          end
-        )
-      ]
-    | @tsv
-  ' "$CATALOG_FILE" | sort
+mapfile -t ENDPOINT_META < <(
+  jq -cr '
+    [
+      .apis
+      | to_entries[] as $api
+      | ($api.value.endpoints // [])[]
+      | {
+          api_name: $api.key,
+          method: (.method // "POST" | ascii_upcase),
+          path: (.path // ""),
+          example: (.example // null)
+        }
+    ]
+    | sort_by(.api_name, .path, .method)
+    | .[]
+  ' "$CATALOG_FILE"
 )
 
-[[ "${#ENDPOINT_ROWS[@]}" -gt 0 ]] || fail "No endpoints found in catalog"
-log "Catalog contains ${#ENDPOINT_ROWS[@]} endpoint(s)"
+[[ "${#ENDPOINT_META[@]}" -gt 0 ]] || fail "No endpoints found in catalog"
+log "Catalog contains ${#ENDPOINT_META[@]} endpoint(s)"
 
 FIRST_JSON_URL=""
-for row in "${ENDPOINT_ROWS[@]}"; do
-  IFS=$'\t' read -r api_name method endpoint_path price_type model_hint <<<"$row"
-  if [[ "$method" != "POST" ]]; then
-    continue
-  fi
-  if requires_json_path "$endpoint_path"; then
+meta=""
+for meta in "${ENDPOINT_META[@]}"; do
+  method="$(jq -r '.method' <<<"$meta")"
+  content_type="$(jq -r '.example.content_type // empty' <<<"$meta")"
+  if [[ "$method" == "POST" && "$content_type" == "json" ]]; then
+    api_name="$(jq -r '.api_name' <<<"$meta")"
+    endpoint_path="$(jq -r '.path' <<<"$meta")"
     FIRST_JSON_URL="${BASE_URL}/${api_name}${endpoint_path}"
     break
   fi
@@ -315,6 +303,7 @@ if [[ -n "$FIRST_JSON_URL" ]]; then
     head -c 120000 < /dev/zero | tr '\0' 'a'
     printf '"}'
   } > "$BIG_JSON_FILE"
+
   post_json_file "$FIRST_JSON_URL" "$BIG_JSON_FILE"
   assert_status "413"
   assert_error_code "request_too_large"
@@ -322,22 +311,37 @@ fi
 
 tested_count=0
 
-for row in "${ENDPOINT_ROWS[@]}"; do
-  IFS=$'\t' read -r api_name method endpoint_path price_type model_hint <<<"$row"
+for meta in "${ENDPOINT_META[@]}"; do
+  api_name="$(jq -r '.api_name' <<<"$meta")"
+  method="$(jq -r '.method' <<<"$meta")"
+  endpoint_path="$(jq -r '.path' <<<"$meta")"
+  content_type="$(jq -r '.example.content_type // empty' <<<"$meta")"
 
   [[ "$method" == "POST" ]] || fail "Unsupported endpoint method in catalog: ${api_name} ${method} ${endpoint_path}"
+  [[ -n "$content_type" ]] || fail "Endpoint ${api_name}${endpoint_path} is missing example.content_type in catalog"
 
   endpoint_url="${BASE_URL}/${api_name}${endpoint_path}"
   tested_count=$((tested_count + 1))
-  log "Testing ${api_name} ${endpoint_path} (${tested_count}/${#ENDPOINT_ROWS[@]})"
+  log "Testing ${api_name} ${endpoint_path} (${tested_count}/${#ENDPOINT_META[@]})"
 
-  if requires_json_path "$endpoint_path"; then
-    post_text_plain "$endpoint_url" 'not-json'
-    assert_status "400"
-    assert_error_code "invalid_request"
+  if [[ "$content_type" == "json" ]]; then
+    required_field="$(jq -r '.example.e2e.required_field // empty' <<<"$meta")"
+    if [[ -n "$required_field" ]]; then
+      missing_body="$(jq -c --arg field "$required_field" '.example.body // {} | del(.[$field])' <<<"$meta")"
+      post_json "$endpoint_url" "$missing_body"
+      assert_status "400"
+      assert_error_code "missing_required_field"
+    fi
+
+    invoice_request_body="$(jq -c '.example.e2e.invalid_body // .example.body // {}' <<<"$meta")"
+    post_json "$endpoint_url" "$invoice_request_body"
+  elif [[ "$content_type" == "multipart" ]]; then
+    invoice_request_fields="$(jq -c '.example.e2e.invalid_fields // .example.fields // {}' <<<"$meta")"
+    post_multipart_from_json_fields "$endpoint_url" "$invoice_request_fields"
+  else
+    fail "Unsupported example.content_type '${content_type}' for ${api_name}${endpoint_path}"
   fi
 
-  send_upstream_invalid_request "$endpoint_url" "$endpoint_path" "$model_hint"
   assert_status "402"
 
   response_status="$(json_required '.status // empty' || true)"
@@ -367,15 +371,21 @@ for row in "${ENDPOINT_ROWS[@]}"; do
   preimage="$(pay_invoice "$invoice")"
 
   redeem_with_preimage "$preimage"
-  assert_status_4xx
+  expected_redeem_status="$(jq -r '.example.e2e.redeem_status // "4xx"' <<<"$meta")"
+  assert_redeem_status "$expected_redeem_status"
 
-  upstream_message="$(json_required '.error.message // empty' || true)"
-  [[ -n "$upstream_message" ]] || fail "Missing forwarded error.message after redeem"
+  if [[ "$expected_redeem_status" == "4xx" ]]; then
+    upstream_message="$(extract_error_message)"
+    require_error_message="$(jq -r 'if (.example.e2e | has("require_error_message")) then (.example.e2e.require_error_message | tostring) else "true" end' <<<"$meta")"
+    if [[ "$require_error_message" == "true" ]]; then
+      [[ -n "$upstream_message" ]] || fail "Missing forwarded error message after redeem"
+    fi
 
-  expected_keyword="$(expected_error_keyword_for_path "$endpoint_path")"
-  if [[ -n "$expected_keyword" && "$STRICT_KEYWORD_MATCH" == "1" ]]; then
-    if ! echo "$upstream_message" | grep -qi "$expected_keyword"; then
-      fail "Forwarded message for ${endpoint_path} did not mention '${expected_keyword}'. Message: ${upstream_message}"
+    expected_keyword="$(jq -r '.example.e2e.error_keyword // empty' <<<"$meta")"
+    if [[ -n "$expected_keyword" && "$STRICT_KEYWORD_MATCH" == "1" ]]; then
+      if ! echo "$upstream_message" | grep -qi "$expected_keyword"; then
+        fail "Forwarded message for ${endpoint_path} did not mention '${expected_keyword}'. Message: ${upstream_message}"
+      fi
     fi
   fi
 

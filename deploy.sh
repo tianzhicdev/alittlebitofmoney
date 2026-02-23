@@ -158,7 +158,9 @@ fi
 ./venv/bin/pip install -r requirements.txt >/dev/null
 
 if systemctl list-unit-files | grep -q '^alittlebitofmoney\\.service'; then
-  systemctl restart alittlebitofmoney.service
+  systemctl stop alittlebitofmoney.service || true
+  pkill -f "uvicorn server:app --host 127.0.0.1 --port $PORT" >/dev/null 2>&1 || true
+  systemctl start alittlebitofmoney.service
   systemctl is-active --quiet alittlebitofmoney.service
   systemctl --no-pager --full status alittlebitofmoney.service | sed -n '1,20p'
 else
@@ -171,6 +173,8 @@ else
 fi
 
 curl -fsS "http://127.0.0.1:$PORT/health" >/dev/null
+curl -fsS "http://127.0.0.1:$PORT/" >/dev/null
+curl -fsS "http://127.0.0.1:$PORT/catalog" >/dev/null
 echo "Prod deploy complete"
 REMOTE
 )
