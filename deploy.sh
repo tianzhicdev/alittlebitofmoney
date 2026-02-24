@@ -108,6 +108,11 @@ rsync_run() {
 deploy_local() {
   need_cmd python3
 
+  if [[ -d "frontend" ]]; then
+    need_cmd npm
+    npm --prefix frontend run build >/dev/null
+  fi
+
   if [[ ! -d "venv" ]]; then
     python3 -m venv venv
   fi
@@ -157,7 +162,7 @@ if [[ ! -d "venv" ]]; then
 fi
 ./venv/bin/pip install -r requirements.txt >/dev/null
 
-if systemctl list-unit-files | grep -q '^alittlebitofmoney\\.service'; then
+if systemctl cat alittlebitofmoney.service >/dev/null 2>&1; then
   systemctl stop alittlebitofmoney.service || true
   pkill -f "uvicorn server:app --host 127.0.0.1 --port $PORT" >/dev/null 2>&1 || true
   systemctl start alittlebitofmoney.service
@@ -172,7 +177,16 @@ else
   ps -p "\$PID" -o pid= -o user= -o args=
 fi
 
-curl -fsS "http://127.0.0.1:$PORT/health" >/dev/null
+for attempt in \$(seq 1 20); do
+  if curl -fsS "http://127.0.0.1:$PORT/health" >/dev/null; then
+    break
+  fi
+  if [[ "\$attempt" == "20" ]]; then
+    echo "health check failed after retries" >&2
+    exit 1
+  fi
+  sleep 1
+done
 curl -fsS "http://127.0.0.1:$PORT/" >/dev/null
 curl -fsS "http://127.0.0.1:$PORT/catalog" >/dev/null
 echo "Prod deploy complete"

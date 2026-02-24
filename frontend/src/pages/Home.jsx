@@ -28,7 +28,7 @@ export default function Home() {
 
 
           <p className="hero-sub" >
-            No sign-up, No KYC. Request once, pay in sats, redeem instantly.
+            No sign-up, No KYC. Request once, pay in sats, then re-send with L402 auth.
           </p>
           <div className="hero-callouts">
             <span className="pill pill-bitcoin">Lightning Native Billing</span>

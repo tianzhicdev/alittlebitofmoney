@@ -20,7 +20,8 @@ fi
 TEST_PHOENIX_URL="${PHOENIX_TEST_URL:-http://localhost:9741}"
 
 echo "=== Step 1: Request API call (expect 402) ==="
-STEP1_RAW=$(curl -sS -w "\n%{http_code}" -X POST "$BASE_URL/openai/v1/chat/completions" \
+STEP1_HEADERS="$(mktemp)"
+STEP1_RAW=$(curl -sS -D "$STEP1_HEADERS" -w "\n%{http_code}" -X POST "$BASE_URL/openai/v1/chat/completions" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "gpt-4o-mini",
@@ -39,9 +40,12 @@ fi
 
 INVOICE=$(echo "$STEP1_BODY" | jq -r '.invoice // empty')
 AMOUNT=$(echo "$STEP1_BODY" | jq -r '.amount_sats // empty')
+WWW_AUTH=$(grep -i '^WWW-Authenticate:' "$STEP1_HEADERS" | head -n1 | sed -E 's/^[^:]+:[[:space:]]*//; s/\r$//')
+MACAROON=$(echo "$WWW_AUTH" | sed -nE 's/^L402[[:space:]]+macaroon="([^"]+)".*/\1/p')
+rm -f "$STEP1_HEADERS"
 
-if [[ -z "$INVOICE" || -z "$AMOUNT" ]]; then
-  echo "Missing invoice/amount in step 1 response" >&2
+if [[ -z "$INVOICE" || -z "$AMOUNT" || -z "$MACAROON" ]]; then
+  echo "Missing invoice/amount/macaroon in step 1 response" >&2
   exit 1
 fi
 
@@ -60,17 +64,24 @@ if [[ -z "$PREIMAGE" ]]; then
 fi
 
 echo
-echo "=== Step 3: Redeem ==="
-STEP3_RAW=$(curl -sS -w "\n%{http_code}" "$BASE_URL/redeem?preimage=$PREIMAGE")
+echo "=== Step 3: Re-send request with L402 authorization ==="
+STEP3_RAW=$(curl -sS -w "\n%{http_code}" -X POST "$BASE_URL/openai/v1/chat/completions" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: L402 ${MACAROON}:${PREIMAGE}" \
+  -d '{
+    "model": "gpt-4o-mini",
+    "messages": [{"role": "user", "content": "Say hello in 5 words"}],
+    "max_tokens": 20
+  }')
 STEP3_BODY=$(echo "$STEP3_RAW" | sed '$d')
 STEP3_CODE=$(echo "$STEP3_RAW" | tail -n1)
 
 echo "$STEP3_BODY" | jq .
 
 if [[ "$STEP3_CODE" != "200" ]]; then
-  echo "Expected 200 on redeem, got $STEP3_CODE" >&2
+  echo "Expected 200 on authorized replay, got $STEP3_CODE" >&2
   exit 1
 fi
 
 echo
-echo "=== Done: end-to-end payment + redeem succeeded ==="
+echo "=== Done: end-to-end L402 request flow succeeded ==="

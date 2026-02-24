@@ -30,9 +30,9 @@ export default function FlowDiagram({ detailed = false }) {
         </div>
         <GlassCard className="flow-step">
           <span className="step-number">3</span>
-          <h3>REDEEM</h3>
+          <h3>RE-SEND</h3>
           <p>
-            <span className="inline-code">GET /redeem?preimage=...</span>
+            <span className="inline-code">POST /openai/v1/... + Authorization: L402 ...</span>
             <br />
             Returns the upstream API response.
           </p>
@@ -41,9 +41,9 @@ export default function FlowDiagram({ detailed = false }) {
 
       {detailed ? (
         <div className="preimage-callout">
-          <strong>What&apos;s a preimage?</strong> When
-          you pay a Lightning invoice, the network reveals the preimage: a 64-character hex string. Send it to us. No accounts and no API keys: the preimage is the
-          receipt.
+          <strong>What&apos;s a preimage?</strong> When you pay a Lightning invoice, the network reveals
+          the preimage: a 64-character hex string. Re-send your original request with
+          <span className="inline-code"> Authorization: L402 {'<macaroon>:<preimage>'}</span>.
         </div>
       ) : null}
     </div>

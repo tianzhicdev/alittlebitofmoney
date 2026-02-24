@@ -14,7 +14,8 @@ if ! command -v jq >/dev/null 2>&1; then
 fi
 
 echo "=== Step 1: Create API request and get invoice ==="
-STEP1_RAW=$(curl -sS -w "\n%{http_code}" -X POST "$BASE_URL/openai/v1/chat/completions" \
+STEP1_HEADERS="$(mktemp)"
+STEP1_RAW=$(curl -sS -D "$STEP1_HEADERS" -w "\n%{http_code}" -X POST "$BASE_URL/openai/v1/chat/completions" \
   -H "Content-Type: application/json" \
   -d "$REQUEST_BODY")
 
@@ -30,9 +31,12 @@ fi
 
 INVOICE=$(echo "$STEP1_BODY" | jq -r '.invoice // empty')
 AMOUNT=$(echo "$STEP1_BODY" | jq -r '.amount_sats // empty')
+WWW_AUTH=$(grep -i '^WWW-Authenticate:' "$STEP1_HEADERS" | head -n1 | sed -E 's/^[^:]+:[[:space:]]*//; s/\r$//')
+MACAROON=$(echo "$WWW_AUTH" | sed -nE 's/^L402[[:space:]]+macaroon="([^"]+)".*/\1/p')
+rm -f "$STEP1_HEADERS"
 
-if [[ -z "$INVOICE" || -z "$AMOUNT" ]]; then
-  echo "Missing invoice/amount in step 1 response" >&2
+if [[ -z "$INVOICE" || -z "$AMOUNT" || -z "$MACAROON" ]]; then
+  echo "Missing invoice/amount/macaroon in step 1 response" >&2
   exit 1
 fi
 
@@ -50,15 +54,18 @@ if [[ -z "$PREIMAGE" ]]; then
 fi
 
 echo
-echo "=== Step 3: Redeem and fetch API response ==="
-REDEEM_RAW=$(curl -sS -w "\n%{http_code}" "$BASE_URL/redeem?preimage=$PREIMAGE")
+echo "=== Step 3: Re-send with L402 authorization ==="
+REDEEM_RAW=$(curl -sS -w "\n%{http_code}" -X POST "$BASE_URL/openai/v1/chat/completions" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: L402 ${MACAROON}:${PREIMAGE}" \
+  -d "$REQUEST_BODY")
 REDEEM_BODY=$(echo "$REDEEM_RAW" | sed '$d')
 REDEEM_CODE=$(echo "$REDEEM_RAW" | tail -n1)
 
 echo "$REDEEM_BODY" | jq .
 
 if [[ "$REDEEM_CODE" != "200" ]]; then
-  echo "Expected 200 on redeem, got $REDEEM_CODE" >&2
+  echo "Expected 200 on authorized request, got $REDEEM_CODE" >&2
   exit 1
 fi
 

@@ -90,8 +90,9 @@ function buildMultipartFormLines(fields, fileField, fileName, fileComment) {
   if (fileComment) {
     lines.push(`// ${fileComment}`);
   }
-  lines.push(`const uploadFile = new File([], ${JSON.stringify(fileName)});`);
-  lines.push(`form.append(${JSON.stringify(fileField)}, uploadFile, ${JSON.stringify(fileName)});`);
+  lines.push(
+    `form.append(${JSON.stringify(fileField)}, new File([], ${JSON.stringify(fileName)}), ${JSON.stringify(fileName)});`
+  );
 
   return lines;
 }
@@ -105,52 +106,75 @@ function generateJsonSnippets(route, example) {
 
   return {
     curl: `API="https://alittlebitofmoney.com"
+REQUEST='${compactSafe}'
 
-STEP1=$(curl -s -X POST "$API${route}" \\
+HEADERS=$(mktemp)
+STEP1=$(curl -s -D "$HEADERS" -X POST "$API${route}" \\
   -H "Content-Type: application/json" \\
-  -d '${compactSafe}')
+  -d "$REQUEST")
 
 INVOICE=$(echo "$STEP1" | jq -r '.invoice')
+MACAROON=$(grep -i '^WWW-Authenticate:' "$HEADERS" | sed -E 's/^[^:]+:[[:space:]]*//' | sed -E 's/^L402[[:space:]]+macaroon="([^"]+)".*/\\1/' | tr -d '\\r')
 echo "Pay this invoice with your wallet:"
 echo "$INVOICE"
 
 read -r -p "Preimage: " PREIMAGE
-curl -s "$API/redeem?preimage=$PREIMAGE" | jq .`,
+curl -s -X POST "$API${route}" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: L402 \${MACAROON}:\${PREIMAGE}" \\
+  -d "$REQUEST" | jq .`,
 
     python: `import requests
 
 API = "https://alittlebitofmoney.com"
+payload = ${pythonPayload}
 
 # Step 1: Send request -> get 402 + invoice
-step1 = requests.post(f"{API}${route}", json=${pythonPayload})
+step1 = requests.post(f"{API}${route}", json=payload)
 invoice = step1.json()["invoice"]
+www_auth = step1.headers.get("WWW-Authenticate", "")
+macaroon = www_auth.split('macaroon="', 1)[1].split('"', 1)[0]
 print("Pay this invoice with your wallet:")
 print(invoice)
 
 # Step 2: Pay with your wallet, paste preimage
 preimage = input("Preimage: ").strip()
 
-# Step 3: Redeem
-result = requests.get(f"{API}/redeem", params={"preimage": preimage})
+# Step 3: Re-send same request with L402 auth
+result = requests.post(
+    f"{API}${route}",
+    headers={"Authorization": f"L402 {macaroon}:{preimage}"},
+    json=payload,
+)
 print(result.json())`,
 
     javascript: `const API = "https://alittlebitofmoney.com";
+const payload = ${prettyJson};
 
 // Step 1: Send request -> get 402 + invoice
 const step1 = await fetch(\`${'${API}'}${route}\`, {
   method: "POST",
   headers: { "Content-Type": "application/json" },
-  body: JSON.stringify(${prettyJson}),
+  body: JSON.stringify(payload),
 });
 
 const { invoice } = await step1.json();
+const wwwAuth = step1.headers.get("WWW-Authenticate") || "";
+const macaroon = (wwwAuth.match(/macaroon="([^"]+)"/) || [])[1];
 console.log("Pay this invoice with your wallet:", invoice);
 
 // Step 2: Pay with your wallet, get preimage
 const preimage = prompt("Preimage:");
 
-// Step 3: Redeem
-const result = await fetch(\`${'${API}'}/redeem?preimage=${'${preimage}'}\`);
+// Step 3: Re-send same request with L402 auth
+const result = await fetch(\`${'${API}'}${route}\`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "Authorization": "L402 " + macaroon + ":" + preimage,
+  },
+  body: JSON.stringify(payload),
+});
 console.log(await result.json());`,
   };
 }
@@ -176,15 +200,19 @@ function generateMultipartSnippets(route, example) {
   return {
     curl: `API="https://alittlebitofmoney.com"
 
-STEP1=$(curl -s -X POST "$API${route}" \\
+HEADERS=$(mktemp)
+STEP1=$(curl -s -D "$HEADERS" -X POST "$API${route}" \\
   ${curlFields})
 
 INVOICE=$(echo "$STEP1" | jq -r '.invoice')
+MACAROON=$(grep -i '^WWW-Authenticate:' "$HEADERS" | sed -E 's/^[^:]+:[[:space:]]*//' | sed -E 's/^L402[[:space:]]+macaroon="([^"]+)".*/\\1/' | tr -d '\\r')
 echo "Pay this invoice with your wallet:"
 echo "$INVOICE"
 
 read -r -p "Preimage: " PREIMAGE
-curl -s "$API/redeem?preimage=$PREIMAGE" | jq .`,
+curl -s -X POST "$API${route}" \\
+  -H "Authorization: L402 \${MACAROON}:\${PREIMAGE}" \\
+  ${curlFields} | jq .`,
 
     python: `import requests
 
@@ -199,35 +227,53 @@ with open("${fileName}", "rb") as upload_file:
     )
 
 invoice = step1.json()["invoice"]
+www_auth = step1.headers.get("WWW-Authenticate", "")
+macaroon = www_auth.split('macaroon="', 1)[1].split('"', 1)[0]
 print("Pay this invoice with your wallet:")
 print(invoice)
 
 # Step 2: Pay with your wallet, paste preimage
 preimage = input("Preimage: ").strip()
 
-# Step 3: Redeem
-result = requests.get(f"{API}/redeem", params={"preimage": preimage})
+# Step 3: Re-send same request with L402 auth
+with open("${fileName}", "rb") as upload_file:
+    result = requests.post(
+        f"{API}${route}",
+        data=${dataObject},
+        files={"${fileField}": upload_file},
+        headers={"Authorization": f"L402 {macaroon}:{preimage}"},
+    )
 print(result.json())`,
 
     javascript: `const API = "https://alittlebitofmoney.com";
 
 // Step 1: Send request -> get 402 + invoice
-const form = new FormData();
-${jsLines.join('\n')}
+const form1 = new FormData();
+${jsLines.join('\n').split('form.').join('form1.')}
 
 const step1 = await fetch(\`${'${API}'}${route}\`, {
   method: "POST",
-  body: form,
+  body: form1,
 });
 
 const { invoice } = await step1.json();
+const wwwAuth = step1.headers.get("WWW-Authenticate") || "";
+const macaroon = (wwwAuth.match(/macaroon="([^"]+)"/) || [])[1];
 console.log("Pay this invoice with your wallet:", invoice);
 
 // Step 2: Pay with your wallet, get preimage
 const preimage = prompt("Preimage:");
 
-// Step 3: Redeem
-const result = await fetch(\`${'${API}'}/redeem?preimage=${'${preimage}'}\`);
+// Step 3: Re-send same request with L402 auth
+const form2 = new FormData();
+${jsLines.join('\n').split('form.').join('form2.')}
+const result = await fetch(\`${'${API}'}${route}\`, {
+  method: "POST",
+  headers: {
+    "Authorization": "L402 " + macaroon + ":" + preimage,
+  },
+  body: form2,
+});
 console.log(await result.json());`,
   };
 }

@@ -3,6 +3,8 @@ set -euo pipefail
 
 # End-to-end test for ALL configured API endpoints discovered from /api/catalog.
 # Endpoint examples from config drive BOTH UI code snippets and this test script.
+# Intended runtime: ssh captain (VPS). This script requires Bash 4+ (mapfile)
+# and local access to the Phoenix test wallet at http://localhost:9741.
 
 BASE_URL="${BASE_URL:-${1:-https://alittlebitofmoney.com}}"
 BASE_URL="${BASE_URL%/}"
@@ -26,6 +28,10 @@ fail() {
   echo "ERROR: $*" >&2
   exit 1
 }
+
+if (( BASH_VERSINFO[0] < 4 )); then
+  fail "This script requires Bash 4+ and should be run on ssh captain (VPS)."
+fi
 
 require_cmd() {
   command -v "$1" >/dev/null 2>&1 || fail "Missing required command: $1"
@@ -78,6 +84,16 @@ post_json() {
   run_http "POST JSON ${url}" -X POST "$url" -H "Content-Type: application/json" --data "$payload"
 }
 
+post_json_with_auth() {
+  local url="$1"
+  local payload="$2"
+  local auth="$3"
+  run_http "POST JSON AUTH ${url}" -X POST "$url" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: ${auth}" \
+    --data "$payload"
+}
+
 post_json_file() {
   local url="$1"
   local payload_file="$2"
@@ -101,6 +117,20 @@ post_multipart() {
   done
 
   run_http "POST MULTIPART ${url}" -X POST "$url" "${form_args[@]}"
+}
+
+post_multipart_with_auth() {
+  local url="$1"
+  local auth="$2"
+  shift 2
+
+  local form_args=()
+  while (($#)); do
+    form_args+=(-F "$1")
+    shift
+  done
+
+  run_http "POST MULTIPART AUTH ${url}" -X POST "$url" -H "Authorization: ${auth}" "${form_args[@]}"
 }
 
 resolve_file_placeholder() {
@@ -144,9 +174,34 @@ post_multipart_from_json_fields() {
   post_multipart "$url" "${form_args[@]}"
 }
 
-redeem_with_preimage() {
-  local preimage="$1"
-  run_http "GET REDEEM ${BASE_URL}/redeem?preimage=${preimage}" -G "${BASE_URL}/redeem" --data-urlencode "preimage=${preimage}"
+post_multipart_from_json_fields_with_auth() {
+  local url="$1"
+  local fields_json="$2"
+  local auth="$3"
+
+  local form_entries=()
+  mapfile -t form_entries < <(jq -cr 'to_entries[]?' <<<"$fields_json")
+
+  local form_args=()
+  local entry
+  for entry in "${form_entries[@]}"; do
+    local key
+    local value
+    key="$(jq -r '.key' <<<"$entry")"
+    value="$(jq -r '.value | tostring' <<<"$entry")"
+
+    if [[ "$value" == @* ]]; then
+      local file_ref file_path
+      file_ref="${value#@}"
+      file_path="$(resolve_file_placeholder "$file_ref")"
+      [[ -f "$file_path" ]] || fail "Multipart file does not exist: ${file_path}"
+      form_args+=("${key}=@${file_path}")
+    else
+      form_args+=("${key}=${value}")
+    fi
+  done
+
+  post_multipart_with_auth "$url" "$auth" "${form_args[@]}"
 }
 
 assert_status() {
@@ -162,7 +217,7 @@ assert_status_4xx() {
   fi
 }
 
-assert_redeem_status() {
+assert_authorized_status() {
   local expected="$1"
   if [[ "$expected" == "4xx" ]]; then
     assert_status_4xx
@@ -193,6 +248,20 @@ header_value() {
   local header_name="$1"
   local value
   value="$(grep -i "^${header_name}:" "$LAST_HEADERS_FILE" | head -n1 | sed -E 's/^[^:]+:[[:space:]]*//' | tr -d '\r' || true)"
+  printf '%s' "$value"
+}
+
+macaroon_from_www_auth() {
+  local www_auth="$1"
+  local value
+  value="$(sed -nE 's/^L402[[:space:]]+macaroon="([^"]+)".*/\1/p' <<<"$www_auth")"
+  printf '%s' "$value"
+}
+
+invoice_from_www_auth() {
+  local www_auth="$1"
+  local value
+  value="$(sed -nE 's/.*invoice="([^"]+)".*/\1/p' <<<"$www_auth")"
   printf '%s' "$value"
 }
 
@@ -266,6 +335,7 @@ mapfile -t ENDPOINT_META < <(
 log "Catalog contains ${#ENDPOINT_META[@]} endpoint(s)"
 
 FIRST_JSON_URL=""
+FIRST_JSON_BODY="{}"
 meta=""
 for meta in "${ENDPOINT_META[@]}"; do
   method="$(jq -r '.method' <<<"$meta")"
@@ -274,6 +344,7 @@ for meta in "${ENDPOINT_META[@]}"; do
     api_name="$(jq -r '.api_name' <<<"$meta")"
     endpoint_path="$(jq -r '.path' <<<"$meta")"
     FIRST_JSON_URL="${BASE_URL}/${api_name}${endpoint_path}"
+    FIRST_JSON_BODY="$(jq -c '.example.body // {}' <<<"$meta")"
     break
   fi
 done
@@ -283,14 +354,6 @@ log "Running shared proxy validation checks"
 post_json "${BASE_URL}/openai/v1/not-a-real-endpoint" '{"x":1}'
 assert_status "404"
 assert_error_code "api_not_found"
-
-run_http "GET ${BASE_URL}/redeem" "${BASE_URL}/redeem"
-assert_status "400"
-assert_error_code "invalid_payment"
-
-redeem_with_preimage "deadbeef"
-assert_status "400"
-assert_error_code "invalid_payment"
 
 if [[ -n "$FIRST_JSON_URL" ]]; then
   post_text_plain "$FIRST_JSON_URL" 'this is not json'
@@ -307,6 +370,12 @@ if [[ -n "$FIRST_JSON_URL" ]]; then
   post_json_file "$FIRST_JSON_URL" "$BIG_JSON_FILE"
   assert_status "413"
   assert_error_code "request_too_large"
+fi
+
+if [[ -n "$FIRST_JSON_URL" ]]; then
+  post_json_with_auth "$FIRST_JSON_URL" "$FIRST_JSON_BODY" "L402 invalid"
+  assert_status "401"
+  assert_error_code "invalid_l402"
 fi
 
 tested_count=0
@@ -360,25 +429,37 @@ for meta in "${ENDPOINT_META[@]}"; do
   header_invoice="$(header_value 'X-Lightning-Invoice')"
   header_hash="$(header_value 'X-Payment-Hash')"
   header_price="$(header_value 'X-Price-Sats')"
+  www_auth="$(header_value 'WWW-Authenticate')"
+  macaroon="$(macaroon_from_www_auth "$www_auth")"
+  challenge_invoice="$(invoice_from_www_auth "$www_auth")"
 
   [[ -n "$header_invoice" ]] || fail "Missing X-Lightning-Invoice header"
   [[ -n "$header_hash" ]] || fail "Missing X-Payment-Hash header"
   [[ -n "$header_price" ]] || fail "Missing X-Price-Sats header"
+  [[ -n "$www_auth" ]] || fail "Missing WWW-Authenticate header"
+  [[ -n "$macaroon" ]] || fail "Missing macaroon in WWW-Authenticate header"
+  [[ -n "$challenge_invoice" ]] || fail "Missing invoice in WWW-Authenticate header"
   [[ "$header_invoice" == "$invoice" ]] || fail "X-Lightning-Invoice header mismatch"
   [[ "$header_hash" == "$payment_hash" ]] || fail "X-Payment-Hash header mismatch"
   [[ "$header_price" == "$amount_sats" ]] || fail "X-Price-Sats header mismatch"
+  [[ "$challenge_invoice" == "$invoice" ]] || fail "WWW-Authenticate invoice mismatch"
 
   preimage="$(pay_invoice "$invoice")"
+  l402_auth="L402 ${macaroon}:${preimage}"
 
-  redeem_with_preimage "$preimage"
-  expected_redeem_status="$(jq -r '.example.e2e.redeem_status // "4xx"' <<<"$meta")"
-  assert_redeem_status "$expected_redeem_status"
+  if [[ "$content_type" == "json" ]]; then
+    post_json_with_auth "$endpoint_url" "$invoice_request_body" "$l402_auth"
+  else
+    post_multipart_from_json_fields_with_auth "$endpoint_url" "$invoice_request_fields" "$l402_auth"
+  fi
+  expected_authorized_status="$(jq -r '.example.e2e.authorized_status // .example.e2e.redeem_status // "4xx"' <<<"$meta")"
+  assert_authorized_status "$expected_authorized_status"
 
-  if [[ "$expected_redeem_status" == "4xx" ]]; then
+  if [[ "$expected_authorized_status" == "4xx" ]]; then
     upstream_message="$(extract_error_message)"
     require_error_message="$(jq -r 'if (.example.e2e | has("require_error_message")) then (.example.e2e.require_error_message | tostring) else "true" end' <<<"$meta")"
     if [[ "$require_error_message" == "true" ]]; then
-      [[ -n "$upstream_message" ]] || fail "Missing forwarded error message after redeem"
+      [[ -n "$upstream_message" ]] || fail "Missing forwarded error message after authorized request"
     fi
 
     expected_keyword="$(jq -r '.example.e2e.error_keyword // empty' <<<"$meta")"
@@ -389,7 +470,11 @@ for meta in "${ENDPOINT_META[@]}"; do
     fi
   fi
 
-  redeem_with_preimage "$preimage"
+  if [[ "$content_type" == "json" ]]; then
+    post_json_with_auth "$endpoint_url" "$invoice_request_body" "$l402_auth"
+  else
+    post_multipart_from_json_fields_with_auth "$endpoint_url" "$invoice_request_fields" "$l402_auth"
+  fi
   assert_status "400"
   assert_error_code "payment_already_used"
 done

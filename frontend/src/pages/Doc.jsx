@@ -16,13 +16,20 @@ const RESPONSE_SHAPE = `{
 
 const QUICK_START = `PHOENIX_WALLET_PASSWORD=your-phoenix-password
 # Step 1: Request -> 402 + invoice
-INVOICE=$(curl -sS -X POST https://alittlebitofmoney.com/openai/v1/chat/completions \
+HEADERS=$(mktemp)
+STEP1=$(curl -sS -D "$HEADERS" -X POST https://alittlebitofmoney.com/openai/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"hello bitcoin world"}]}' | jq -r '.invoice')
+  -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"hello bitcoin world"}]}')
+INVOICE=$(echo "$STEP1" | jq -r '.invoice')
+MACAROON=$(grep -i '^WWW-Authenticate:' "$HEADERS" | sed -E 's/^[^:]+:[[:space:]]*//' | sed -E 's/^L402[[:space:]]+macaroon="([^"]+)".*/\\1/' | tr -d '\r')
 # Step 2: Pay (replace with your wallet integration)
 PREIMAGE=$(curl -sS -X POST http://localhost:9741/payinvoice  -u ":$PHOENIX_WALLET_PASSWORD" --data-urlencode "invoice=$INVOICE" | jq -r '.paymentPreimage')
-# Step 3: Redeem
-curl -sS "https://alittlebitofmoney.com/redeem?preimage=$PREIMAGE" | jq -r '.choices[0].message.content'
+# Step 3: Re-send same request with L402 auth
+curl -sS -X POST https://alittlebitofmoney.com/openai/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: L402 \${MACAROON}:\${PREIMAGE}" \
+  -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"hello bitcoin world"}]}' \
+  | jq -r '.choices[0].message.content'
 Hello! How can I assist you in the Bitcoin world today?`;
 
 const AUTOMATION_TABS = [
@@ -40,12 +47,21 @@ step1 = requests.post(f"{API}/openai/v1/chat/completions", json={
 })
 data = step1.json()
 invoice = data["invoice"]
+www_auth = step1.headers.get("WWW-Authenticate", "")
+macaroon = www_auth.split('macaroon="', 1)[1].split('"', 1)[0]
 
 # Step 2: Pay (replace with your wallet integration)
 preimage = pay_invoice(invoice)  # <- see wallet integrations below
 
-# Step 3: Redeem
-result = requests.get(f"{API}/redeem", params={"preimage": preimage})
+# Step 3: Re-send with L402 authorization
+result = requests.post(
+    f"{API}/openai/v1/chat/completions",
+    headers={"Authorization": f"L402 {macaroon}:{preimage}"},
+    json={
+        "model": "gpt-4o-mini",
+        "messages": [{"role": "user", "content": "Say hello"}],
+    },
+)
 print(result.json())`,
   },
   {
@@ -63,21 +79,33 @@ const step1 = await fetch(API + "/openai/v1/chat/completions", {
   }),
 });
 const { invoice } = await step1.json();
+const wwwAuth = step1.headers.get("WWW-Authenticate") || "";
+const macaroon = (wwwAuth.match(/macaroon="([^"]+)"/) || [])[1];
 
 // Step 2: Pay (replace with your wallet integration)
 const preimage = await payInvoice(invoice); // <- see wallet integrations below
 
-// Step 3: Redeem
-const result = await fetch(API + "/redeem?preimage=" + preimage);
+// Step 3: Re-send with L402 authorization
+const result = await fetch(API + "/openai/v1/chat/completions", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "Authorization": "L402 " + macaroon + ":" + preimage,
+  },
+  body: JSON.stringify({
+    model: "gpt-4o-mini",
+    messages: [{ role: "user", content: "Say hello" }],
+  }),
+});
 console.log(await result.json());`,
   },
 ];
 
 const FAQ_ITEMS = [
   {
-    question: 'What happens if I pay but do not redeem?',
+    question: 'What happens if I pay but do not use the preimage?',
     answer:
-      'Preimage redemption is valid for 10 minutes after invoice creation. After that, payment is non-refundable.',
+      'You can use a paid preimage once by re-sending your request with L402 authorization.',
   },
   {
     question: "What's the preimage?",
@@ -101,7 +129,7 @@ const FAQ_ITEMS = [
   },
   {
     question: 'Do you store my prompts?',
-    answer: 'Requests are held in memory until redeemed (max 10 minutes), then deleted.',
+    answer: 'No request-body storage is required for L402 flow. You re-send the request after payment.',
   },
   {
     question: 'Is there a rate limit?',
@@ -118,7 +146,7 @@ export default function Doc() {
         <div className="hero-content">
           <p className="eyebrow">Developer Guide</p>
           <h1 className="glow-title">Lightning Payment Flow</h1>
-          <p className="hero-sub">Send request, pay the invoice, redeem with preimage.</p>
+          <p className="hero-sub">Send request, pay the invoice, then re-send with L402 auth.</p>
         </div>
       </section>
 
