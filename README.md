@@ -14,6 +14,79 @@ Environment variables for topup:
 - `ALITTLEBITOFMONEY_SUPABASE_PW`
 - `ALITTLEBITOFMONEY_SUPABASE_SECRET_KEY` (stored for compatibility, currently unused by DB-path implementation)
 
+## Topup Flow (How It Works)
+
+Topup is a prepaid path that coexists with L402 pay-per-request.
+
+### 1) Create a topup invoice
+
+```bash
+curl -sS -X POST http://localhost:3000/topup \
+  -H "Content-Type: application/json" \
+  -d '{"amount_sats":120}' | jq .
+```
+
+Returns `402 payment_required` with:
+- `invoice`
+- `payment_hash`
+- `amount_sats`
+- `claim_url` (currently `/topup/claim`)
+
+### 2) Pay invoice and claim token
+
+```bash
+# pay invoice with your Lightning wallet, get preimage
+curl -sS -X POST http://localhost:3000/topup/claim \
+  -H "Content-Type: application/json" \
+  -d '{"preimage":"<hex-preimage-from-wallet>"}' | jq .
+```
+
+Returns:
+- `token` (bearer token, format `abl_...`)
+- `balance_sats`
+
+### 3) Spend balance with Bearer auth
+
+```bash
+curl -sS -X POST http://localhost:3000/openai/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"Say hello"}]}' | jq .
+```
+
+If balance is too low, server returns:
+- HTTP `402`
+- `error.code = "insufficient_balance"`
+
+### 4) Refill existing token
+
+Create refill invoice using the same token:
+
+```bash
+curl -sS -X POST http://localhost:3000/topup \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{"amount_sats":180}' | jq .
+```
+
+Pay invoice, then claim onto that same token:
+
+```bash
+curl -sS -X POST http://localhost:3000/topup/claim \
+  -H "Content-Type: application/json" \
+  -d '{"preimage":"<hex-preimage-from-wallet>","token":"<token>"}' | jq .
+```
+
+Returns updated `balance_sats` on the same token.
+
+### 5) Common topup error codes
+
+- `topup_unavailable`: Supabase topup store not configured/ready.
+- `invalid_token`: unknown or malformed bearer token.
+- `missing_token`: refill invoice was tied to an existing account, but claim request omitted `token`.
+- `invalid_payment`: unknown payment hash or bad preimage.
+- `payment_already_used`: claim attempted more than once for same invoice.
+
 ## Request Validation (before invoice)
 
 JSON endpoints are pre-validated before issuing an invoice. If required fields are missing
@@ -98,3 +171,4 @@ Useful flags:
 ./deploy.sh local
 ./deploy.sh prod
 ```
+# alittlebitofmoney-bot
