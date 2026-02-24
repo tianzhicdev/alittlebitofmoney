@@ -34,6 +34,7 @@ BASE_DIR = Path(__file__).resolve().parent
 CONFIG_PATH = BASE_DIR / "config.yaml"
 FRONTEND_DIST_DIR = BASE_DIR / "frontend" / "dist"
 FRONTEND_INDEX = FRONTEND_DIST_DIR / "index.html"
+SATRING_VERIFY_PATH = BASE_DIR / ".well-known" / "satring-verify"
 
 load_dotenv(BASE_DIR / ".env.secrets")
 load_dotenv(BASE_DIR / ".env")
@@ -671,6 +672,19 @@ async def health() -> Response:
             "topup": {"enabled": topup_store.enabled, "ready": topup_store.ready},
         },
     )
+
+
+@app.get("/.well-known/satring-verify")
+async def satring_verify() -> Response:
+    if not SATRING_VERIFY_PATH.exists():
+        return _build_error(404, "not_found", "Route not found")
+
+    try:
+        payload = SATRING_VERIFY_PATH.read_text(encoding="utf-8")
+    except Exception:
+        return _build_error(500, "server_error", "Could not read verification payload")
+
+    return Response(content=payload, media_type="text/plain")
 
 
 @app.post("/topup")

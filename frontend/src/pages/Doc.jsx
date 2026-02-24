@@ -32,6 +32,38 @@ curl -sS -X POST https://alittlebitofmoney.com/openai/v1/chat/completions \
   | jq -r '.choices[0].message.content'
 Hello! How can I assist you in the Bitcoin world today?`;
 
+const TOPUP_QUICK_START = `API="https://alittlebitofmoney.com"
+
+# Step 1: Create topup invoice (new token)
+TOPUP=$(curl -sS -X POST "$API/topup" \
+  -H "Content-Type: application/json" \
+  -d '{"amount_sats":120}')
+echo "$TOPUP" | jq .
+INVOICE=$(echo "$TOPUP" | jq -r '.invoice')
+
+# Step 2: Pay invoice with your wallet and get preimage (example: phoenixd)
+PREIMAGE=$(curl -sS -X POST http://localhost:9741/payinvoice \
+  -u ":$PHOENIX_WALLET_PASSWORD" \
+  --data-urlencode "invoice=$INVOICE" | jq -r '.paymentPreimage')
+
+# Step 3: Claim token
+CLAIM=$(curl -sS -X POST "$API/topup/claim" \
+  -H "Content-Type: application/json" \
+  -d "{\"preimage\":\"$PREIMAGE\"}")
+echo "$CLAIM" | jq .
+TOKEN=$(echo "$CLAIM" | jq -r '.token')
+
+# Step 4: Spend balance with bearer token
+curl -sS -X POST "$API/openai/v1/chat/completions" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"say hello in 5 words"}]}' | jq .
+
+# Refill existing token:
+# 1) POST /topup with Authorization: Bearer $TOKEN
+# 2) pay refill invoice
+# 3) POST /topup/claim with {"preimage":"...", "token":"'$TOKEN'"}`
+
 const AUTOMATION_TABS = [
   {
     label: 'python',
@@ -108,6 +140,11 @@ const FAQ_ITEMS = [
       'You can use a paid preimage once by re-sending your request with L402 authorization.',
   },
   {
+    question: 'Do you support prepaid balance?',
+    answer:
+      'Yes. Use POST /topup, pay invoice, then POST /topup/claim to get a Bearer token with balance_sats.',
+  },
+  {
     question: "What's the preimage?",
     answer: 'Cryptographic proof of payment. Verify sha256(preimage) == payment_hash.',
   },
@@ -163,6 +200,17 @@ export default function Doc() {
         <CodeBlock
           language="bash"
           code={QUICK_START}
+        />
+      </section>
+
+      <section className="section reveal">
+        <h2 className="section-title">Topup Quick Start (Prepaid)</h2>
+        <p className="section-intro">
+          Prefer lower-latency prepaid usage? Create a topup invoice, claim a bearer token, then spend from balance.
+        </p>
+        <CodeBlock
+          language="bash"
+          code={TOPUP_QUICK_START}
         />
       </section>
 

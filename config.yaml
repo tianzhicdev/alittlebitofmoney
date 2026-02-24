@@ -526,3 +526,115 @@ apis:
 
           _default:
             price_sats: 3000
+
+  openrouter:
+    name: "OpenRouter"
+    upstream_base: "https://openrouter.ai/api"
+    api_key_env: "OPEN_ROUTER_API"
+    auth_header: "Authorization"
+    auth_prefix: "Bearer "
+    extra_headers: {}
+
+    endpoints:
+
+      # ── Chat Completions ──────────────────────────────────────────
+      # POST /v1/chat/completions
+      # OpenAI-compatible request/response. Includes OpenRouter platform fee.
+      - path: "/v1/chat/completions"
+        method: POST
+        description: "Chat completions via OpenRouter (multi-provider model routing)"
+        price_type: per_model
+        example:
+          content_type: json
+          body:
+            model: "openai/gpt-4o-mini"
+            messages:
+              - role: "user"
+                content: "Say hello in five words."
+          e2e:
+            required_field: "messages"
+            invalid_body:
+              model: "not-a-real-model"
+              messages:
+                - role: "user"
+                  content: "Say hello in five words."
+        models:
+          # openai/gpt-4o-mini (+ OpenRouter fee). Conservative 3x+ margin.
+          "openai/gpt-4o-mini":
+            price_sats: 35
+            max_output_tokens: 4000
+
+          # openai/gpt-4.1-mini (+ OpenRouter fee). Conservative 3x+ margin.
+          "openai/gpt-4.1-mini":
+            price_sats: 50
+            max_output_tokens: 4000
+
+          # anthropic/claude-3.5-haiku (+ OpenRouter fee). Mid-range pricing.
+          "anthropic/claude-3.5-haiku":
+            price_sats: 90
+            max_output_tokens: 4000
+
+          # anthropic/claude-sonnet-4.5 (+ OpenRouter fee). Premium model.
+          "anthropic/claude-sonnet-4.5":
+            price_sats: 320
+            max_output_tokens: 4000
+
+          _default:
+            price_sats: 200
+            max_output_tokens: 4000
+
+  anthropic:
+    name: "Anthropic"
+    upstream_base: "https://api.anthropic.com"
+    api_key_env: "ANTHROPIC_API"
+    auth_header: "Authorization"
+    auth_prefix: "Bearer "
+    extra_headers: {}
+
+    endpoints:
+
+      # ── Chat Completions (OpenAI compatibility) ───────────────────
+      # POST /v1/chat/completions
+      # Uses Anthropic OpenAI-compatible endpoint to fit current routing.
+      - path: "/v1/chat/completions"
+        method: POST
+        description: "Chat completions via Anthropic (OpenAI-compatible endpoint)"
+        price_type: per_model
+        example:
+          content_type: json
+          body:
+            model: "claude-3-haiku-20240307"
+            messages:
+              - role: "user"
+                content: "Say hello in five words."
+          e2e:
+            required_field: "messages"
+            invalid_body:
+              model: "not-a-real-model"
+              messages:
+                - role: "user"
+                  content: "Say hello in five words."
+        models:
+          # Claude 3 Haiku (legacy low-cost option). Floor+ for LN economics.
+          claude-3-haiku-20240307:
+            price_sats: 40
+            max_output_tokens: 4000
+
+          # Claude Haiku 4.5. Value-tier Anthropic model.
+          claude-haiku-4-5-20251001:
+            price_sats: 90
+            max_output_tokens: 4000
+
+          # Claude Sonnet 4.6. Premium general model.
+          claude-sonnet-4-6:
+            price_sats: 320
+            max_output_tokens: 4000
+
+          # Claude Opus 4.6. Expensive flagship; tighter cap.
+          claude-opus-4-6:
+            price_sats: 1800
+            max_output_tokens: 4000
+
+          _default:
+            price_sats: 320
+            max_output_tokens: 4000
