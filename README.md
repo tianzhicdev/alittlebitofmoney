@@ -1,114 +1,56 @@
-# alittlebitofmoney proxy
+# alittlebitofmoney
 
-Stateless Lightning-paid API proxy with a Vite + React frontend.
+A stateless Lightning-paid API proxy with prepaid topup support and a Vite + React frontend. Pay for OpenAI API calls (and other API services) using Bitcoin Lightning Network.
 
-## Topup Mode (Phase 3)
+**Please update me when there are feature changes.**
 
-Prepaid balance via Supabase-backed bearer tokens:
-- `POST /topup` with `{ "amount_sats": <int> }` returns `402` + invoice.
-- `POST /topup/claim` with `{ "preimage": "<hex>" }` returns `{ token, balance_sats }`.
-- Use `Authorization: Bearer <token>` on API calls to spend balance.
+## Architecture
 
-Environment variables for topup:
-- `ALITTLEBITOFMONEY_SUPABASE_PROJECT_URL`
-- `ALITTLEBITOFMONEY_SUPABASE_PW`
-- `ALITTLEBITOFMONEY_SUPABASE_SECRET_KEY` (stored for compatibility, currently unused by DB-path implementation)
+- **Backend**: FastAPI server (`server.py`) with L402 authentication
+- **Frontend**: Vite + React SPA in `frontend/`
+- **Payment**: Phoenix Lightning node integration
+- **Storage**: Supabase for prepaid balance tracking
+- **Config**: YAML-based endpoint configuration (`config.yaml`)
 
-## Topup Flow (How It Works)
+## Features
 
-Topup is a prepaid path that coexists with L402 pay-per-request.
+### L402 Pay-Per-Request
+Classic HTTP 402 Payment Required flow with macaroon-based authentication:
+1. Make API request without payment
+2. Receive `402` with Lightning invoice
+3. Pay invoice and get preimage
+4. Retry request with `Authorization: L402 <macaroon>:<preimage>`
 
-### 1) Create a topup invoice
+### Topup Mode (Prepaid Balance)
+Create a bearer token with prepaid sats balance:
+1. Request topup invoice: `POST /topup`
+2. Pay invoice with Lightning wallet
+3. Claim token: `POST /topup/claim` with preimage
+4. Use token: `Authorization: Bearer <token>` on subsequent requests
+5. Refill anytime by creating new topup invoice with existing token
 
-```bash
-curl -sS -X POST http://localhost:3000/topup \
-  -H "Content-Type: application/json" \
-  -d '{"amount_sats":120}' | jq .
-```
+### Supported APIs
+- OpenAI (Chat completions, Embeddings, Transcriptions, TTS, Image generation, etc.)
+- Pricing configured per model in `config.yaml`
+- All endpoints validated before invoice creation (no wasted invoices)
 
-Returns `402 payment_required` with:
-- `invoice`
-- `payment_hash`
-- `amount_sats`
-- `claim_url` (currently `/topup/claim`)
+## Quick Start
 
-### 2) Pay invoice and claim token
-
-```bash
-# pay invoice with your Lightning wallet, get preimage
-curl -sS -X POST http://localhost:3000/topup/claim \
-  -H "Content-Type: application/json" \
-  -d '{"preimage":"<hex-preimage-from-wallet>"}' | jq .
-```
-
-Returns:
-- `token` (bearer token, format `abl_...`)
-- `balance_sats`
-
-### 3) Spend balance with Bearer auth
-
-```bash
-curl -sS -X POST http://localhost:3000/openai/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <token>" \
-  -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"Say hello"}]}' | jq .
-```
-
-If balance is too low, server returns:
-- HTTP `402`
-- `error.code = "insufficient_balance"`
-
-### 4) Refill existing token
-
-Create refill invoice using the same token:
-
-```bash
-curl -sS -X POST http://localhost:3000/topup \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <token>" \
-  -d '{"amount_sats":180}' | jq .
-```
-
-Pay invoice, then claim onto that same token:
-
-```bash
-curl -sS -X POST http://localhost:3000/topup/claim \
-  -H "Content-Type: application/json" \
-  -d '{"preimage":"<hex-preimage-from-wallet>","token":"<token>"}' | jq .
-```
-
-Returns updated `balance_sats` on the same token.
-
-### 5) Common topup error codes
-
-- `topup_unavailable`: Supabase topup store not configured/ready.
-- `invalid_token`: unknown or malformed bearer token.
-- `missing_token`: refill invoice was tied to an existing account, but claim request omitted `token`.
-- `invalid_payment`: unknown payment hash or bad preimage.
-- `payment_already_used`: claim attempted more than once for same invoice.
-
-## Request Validation (before invoice)
-
-JSON endpoints are pre-validated before issuing an invoice. If required fields are missing
-or clearly invalid, the server returns HTTP `400` and **does not** create a Lightning invoice.
-
-Error codes:
-- `missing_required_field`
-- `invalid_field_type`
-- `invalid_field_value`
-
-## Backend (API server)
+### Backend Setup
 
 ```bash
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-# one-time secret for L402 macaroons (persist this in .env)
+
+# Generate L402 root key (save to .env.secrets)
 export L402_ROOT_KEY="$(openssl rand -hex 32)"
+
+# Start server
 uvicorn server:app --host 127.0.0.1 --port 3000
 ```
 
-## Frontend (Vite dev server)
+### Frontend Setup
 
 ```bash
 cd frontend
@@ -116,59 +58,162 @@ npm install
 npm run dev
 ```
 
-Vite proxies `/api`, `/openai`, and `/v1` to `http://127.0.0.1:3000`.
+Vite proxies `/api`, `/openai`, and `/v1` to backend at `http://127.0.0.1:3000`.
 
-## Frontend build
+### Frontend Build
 
 ```bash
 cd frontend
 npm run build
 ```
 
-Build output is written to `frontend/dist/` and served by `server.py` in production.
+Build output in `frontend/dist/` is served by `server.py` in production.
 
-## Example-Driven UI + E2E
+## Configuration
 
-Endpoint examples are defined in `config.yaml` under each endpoint `example` block.
+### Environment Variables
 
-- UI code examples (Catalog page) are generated from `example`.
-- End-to-end tests (`e2e-test-all.sh`) also consume `example` (and `example.e2e` overrides) from `/api/catalog`.
+**Required** (in `.env.secrets`):
+- `L402_ROOT_KEY` - Secret for L402 macaroon generation
+- `OPENAI_API_KEY` - OpenAI API key for proxying
 
-When adding a new endpoint, always add:
-- `example.content_type` (`json` or `multipart`)
-- `example.body` (for JSON) or `example.fields` (for multipart)
-- `example.e2e` metadata for test-specific invalid case/expected keyword
+**Topup** (optional, for prepaid mode):
+- `ALITTLEBITOFMONEY_SUPABASE_PROJECT_URL`
+- `ALITTLEBITOFMONEY_SUPABASE_PW`
+- `ALITTLEBITOFMONEY_SUPABASE_SECRET_KEY`
 
-## Test
+### config.yaml
 
+Defines:
+- API endpoints and pricing per model
+- Upstream service URLs
+- Request validation rules
+- Example payloads for UI and E2E tests
+
+## Usage Examples
+
+### Topup Flow
+
+```bash
+# 1. Create topup invoice
+curl -X POST http://localhost:3000/topup \
+  -H "Content-Type: application/json" \
+  -d '{"amount_sats":120}'
+
+# 2. Pay invoice with Lightning wallet, then claim
+curl -X POST http://localhost:3000/topup/claim \
+  -H "Content-Type: application/json" \
+  -d '{"preimage":"<hex-preimage>"}'
+
+# 3. Use bearer token
+curl -X POST http://localhost:3000/openai/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"Hello"}]}'
+
+# 4. Refill existing token
+curl -X POST http://localhost:3000/topup \
+  -H "Authorization: Bearer <token>" \
+  -d '{"amount_sats":180}'
+```
+
+### Error Codes
+
+**Topup**:
+- `topup_unavailable` - Supabase not configured
+- `invalid_token` - Unknown bearer token
+- `missing_token` - Refill requires token
+- `invalid_payment` - Bad payment hash or preimage
+- `payment_already_used` - Double claim attempt
+- `insufficient_balance` - Not enough sats
+
+**Validation**:
+- `missing_required_field` - Request missing required data
+- `invalid_field_type` - Wrong data type
+- `invalid_field_value` - Invalid value
+
+## Testing
+
+### Unit Tests
 ```bash
 ./scripts/test.sh
 ```
 
-Topup flow (invoice, claim, bearer, refill):
-
+### Topup Flow Test
 ```bash
 ./scripts/test_topup.sh
 ```
 
-Full endpoint suite (all catalog endpoints):
-
+### E2E Test (All Endpoints)
 ```bash
 ./e2e-test-all.sh https://alittlebitofmoney.com
 ```
 
-Important: run `e2e-test-all.sh` on `ssh captain` (the VPS), not macOS local shell.
-- It requires Bash 4+ (`mapfile`), while macOS default Bash is 3.2.
-- It expects `PHOENIX_TEST_URL=http://localhost:9741` to be reachable from the same machine running the test.
+**Important**: Run E2E tests on `ssh captain` (production VPS), not macOS:
+- Requires Bash 4+ (macOS has 3.2)
+- Needs `PHOENIX_TEST_URL=http://localhost:9741` accessible locally
 
-Useful flags:
-- `VERBOSE=1` to print full request/response details.
-- `STRICT_KEYWORD_MATCH=0` to relax keyword assertions on forwarded upstream errors.
+**Flags**:
+- `VERBOSE=1` - Print full request/response details
+- `STRICT_KEYWORD_MATCH=0` - Relax keyword assertions
 
-## Deploy
+## Deployment
 
 ```bash
-./deploy.sh local
-./deploy.sh prod
+./deploy.sh local   # Deploy to local test environment
+./deploy.sh prod    # Deploy to production VPS (captain)
 ```
-# alittlebitofmoney-bot
+
+## Project Structure
+
+```
+.
+├── server.py              # FastAPI backend
+├── config.yaml            # API endpoints & pricing
+├── requirements.txt       # Python dependencies
+├── lib/
+│   ├── phoenix.py         # Lightning node client
+│   ├── topup_store.py     # Supabase prepaid balance
+│   └── used_hashes.py     # Invoice replay protection
+├── frontend/
+│   ├── src/               # React components
+│   └── dist/              # Production build
+├── scripts/
+│   ├── test.sh            # Unit tests
+│   └── test_topup.sh      # Topup integration test
+├── e2e-test-all.sh        # Full catalog E2E tests
+└── deploy.sh              # Deployment script
+
+Documentation:
+├── SETUP_GUIDE.md         # Detailed setup instructions
+├── SERVER_INFO.md         # VPS deployment info
+├── PRICING_PRINCIPLES.md  # Pricing methodology
+├── SPEC_BACKEND_CODEX.md  # Backend design spec
+└── L402_AND_TOPUP_RESEARCH.md  # Payment flow research
+```
+
+## Development
+
+### Adding a New Endpoint
+
+1. Add endpoint definition to `config.yaml` under the appropriate API
+2. Include `example` block with:
+   - `content_type`: `json` or `multipart`
+   - `body` or `fields`: Example request payload
+   - `e2e`: Test metadata (required field, invalid case, error keyword)
+3. UI code examples and E2E tests auto-generate from config
+
+### Example-Driven Development
+
+Both the frontend Catalog page and E2E tests consume endpoint examples from `config.yaml`:
+- UI shows copy-pasteable code examples
+- E2E validates happy path and error handling
+- Single source of truth for endpoint contracts
+
+## License
+
+See LICENSE file.
+
+## Contributing
+
+See WORKLOG.md for recent changes and development history.
