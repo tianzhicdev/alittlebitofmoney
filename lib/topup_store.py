@@ -109,6 +109,20 @@ class SupabaseTopupStore:
             await self._pool.close()
             self._pool = None
 
+    async def create_account(self) -> tuple[str, str]:
+        """Create a new account with 0 balance. Returns (account_id, token)."""
+        pool = self._require_pool()
+        token = self._new_token()
+        token_hash = self._hash_token(token)
+        account_id = uuid.uuid4()
+        async with pool.acquire() as conn:
+            await conn.execute(
+                "insert into accounts (id, token_hash, balance_sats) values ($1, $2, 0)",
+                account_id,
+                token_hash,
+            )
+        return str(account_id), token
+
     async def get_account_id_by_token(self, token: str) -> str:
         pool = self._require_pool()
         token_hash = self._hash_token(token)
@@ -313,6 +327,10 @@ class SupabaseTopupStore:
             await conn.execute(
                 "create index if not exists idx_usage_log_account_id on usage_log (account_id, created_at desc);"
             )
+
+    @property
+    def pool(self) -> Optional[asyncpg.Pool]:
+        return self._pool
 
     def _require_pool(self) -> asyncpg.Pool:
         if self._pool is None:

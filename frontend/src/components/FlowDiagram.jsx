@@ -1,10 +1,8 @@
-import GlassCard from './GlassCard';
-
 export default function FlowDiagram({ detailed = false }) {
   return (
-    <div className="reveal">
+    <div>
       <div className="flow-grid">
-        <GlassCard className="flow-step">
+        <div className="flow-step">
           <span className="step-number">1</span>
           <h3>REQUEST</h3>
           <p>
@@ -12,11 +10,11 @@ export default function FlowDiagram({ detailed = false }) {
             <br />
             Returns 402 with invoice and payment hash.
           </p>
-        </GlassCard>
+        </div>
         <div className="flow-arrow" aria-hidden>
           -&gt;
         </div>
-        <GlassCard className="flow-step">
+        <div className="flow-step">
           <span className="step-number">2</span>
           <h3>PAY</h3>
           <p>
@@ -24,11 +22,11 @@ export default function FlowDiagram({ detailed = false }) {
             <br />
             Your wallet reveals a preimage.
           </p>
-        </GlassCard>
+        </div>
         <div className="flow-arrow" aria-hidden>
           -&gt;
         </div>
-        <GlassCard className="flow-step">
+        <div className="flow-step">
           <span className="step-number">3</span>
           <h3>RE-SEND</h3>
           <p>
@@ -36,7 +34,7 @@ export default function FlowDiagram({ detailed = false }) {
             <br />
             Returns the upstream API response.
           </p>
-        </GlassCard>
+        </div>
       </div>
 
       {detailed ? (

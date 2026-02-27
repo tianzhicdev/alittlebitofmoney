@@ -40,22 +40,45 @@ load_env_defaults ".env.secrets"
 load_env_defaults ".env"
 
 MODE="${1:-}"
-PORT="${PORT:-3000}"
-REMOTE_DIR="${REMOTE_DIR:-/home/abm/alittlebitofmoney}"
 SSH_OPTS="-o StrictHostKeyChecking=accept-new"
+
+# ── target config ──────────────────────────────────────────────
+#   prod  → lion    (aiforhire.xyz)
+#   beta  → captain (alittlebitofmoney.com)
+# ───────────────────────────────────────────────────────────────
+
+resolve_target() {
+  local env="$1"
+  case "$env" in
+    prod)
+      T_HOST="lion"
+      T_DIR="/root/alittlebitofmoney"
+      T_PORT="3000"
+      T_DOMAIN="aiforhire.xyz"
+      T_SERVICE="alittlebitofmoney.service"
+      ;;
+    beta)
+      T_HOST="captain"
+      T_DIR="/home/abm/alittlebitofmoney"
+      T_PORT="3000"
+      T_DOMAIN="alittlebitofmoney.com"
+      T_SERVICE="alittlebitofmoney.service"
+      ;;
+    *)
+      echo "Unknown target: $env" >&2
+      exit 1
+      ;;
+  esac
+}
 
 usage() {
   cat <<USAGE
 Usage:
-  ./deploy.sh local
-  ./deploy.sh prod
+  ./deploy.sh local        # Run locally
+  ./deploy.sh prod         # Deploy to aiforhire.xyz (lion)
+  ./deploy.sh beta         # Deploy to alittlebitofmoney.com (captain)
 
-Env vars used for prod:
-  VPS_IP (required)
-  VPS_USER (required)
-  VPS_PASSWORD (optional, requires sshpass)
-  REMOTE_DIR (optional, default: /home/abm/alittlebitofmoney)
-  PORT (optional, default: 3000)
+SSH aliases "lion" and "captain" must be configured in ~/.ssh/config.
 USAGE
 }
 
@@ -69,13 +92,7 @@ need_cmd() {
 ssh_run() {
   local host="$1"
   local remote_cmd="$2"
-
-  if [[ -n "${VPS_PASSWORD:-}" ]]; then
-    need_cmd sshpass
-    printf '%s\n' "$remote_cmd" | SSHPASS="$VPS_PASSWORD" sshpass -e ssh $SSH_OPTS "$host" "bash -s"
-  else
-    printf '%s\n' "$remote_cmd" | ssh $SSH_OPTS "$host" "bash -s"
-  fi
+  printf '%s\n' "$remote_cmd" | ssh $SSH_OPTS "$host" "bash -s"
 }
 
 rsync_run() {
@@ -97,16 +114,12 @@ rsync_run() {
     --exclude "phoenixd-test-data"
   )
 
-  if [[ -n "${VPS_PASSWORD:-}" ]]; then
-    need_cmd sshpass
-    SSHPASS="$VPS_PASSWORD" sshpass -e rsync -az --delete "${excludes[@]}" -e "ssh $SSH_OPTS" ./ "$host:$target_dir/"
-  else
-    rsync -az --delete "${excludes[@]}" -e "ssh $SSH_OPTS" ./ "$host:$target_dir/"
-  fi
+  rsync -az --delete "${excludes[@]}" -e "ssh $SSH_OPTS" ./ "$host:$target_dir/"
 }
 
 deploy_local() {
   need_cmd python3
+  local port="${PORT:-3000}"
 
   if [[ -d "frontend" ]]; then
     need_cmd npm
@@ -119,26 +132,24 @@ deploy_local() {
 
   ./venv/bin/pip install -r requirements.txt
 
-  pkill -f "uvicorn server:app --host 127.0.0.1 --port $PORT" >/dev/null 2>&1 || true
-  nohup ./venv/bin/uvicorn server:app --host 127.0.0.1 --port "$PORT" > local-app.log 2>&1 < /dev/null &
+  pkill -f "uvicorn server:app --host 127.0.0.1 --port $port" >/dev/null 2>&1 || true
+  nohup ./venv/bin/uvicorn server:app --host 127.0.0.1 --port "$port" > local-app.log 2>&1 < /dev/null &
   echo $! > .local-uvicorn.pid
   sleep 1
 
   echo "Local deploy complete"
-  echo "App: http://127.0.0.1:$PORT"
+  echo "App: http://127.0.0.1:$port"
   echo "Log: $ROOT_DIR/local-app.log"
 }
 
-deploy_prod() {
+deploy_remote() {
+  local env="$1"
   need_cmd rsync
   need_cmd ssh
 
-  if [[ -z "${VPS_IP:-}" || -z "${VPS_USER:-}" ]]; then
-    echo "VPS_IP and VPS_USER are required for prod deploy" >&2
-    exit 1
-  fi
+  resolve_target "$env"
 
-  local host="$VPS_USER@$VPS_IP"
+  echo "─── deploying to $env ($T_DOMAIN via $T_HOST) ───"
 
   if [[ -d "frontend" ]]; then
     need_cmd npm
@@ -150,27 +161,27 @@ deploy_prod() {
     )
   fi
 
-  echo "Syncing code to $host:$REMOTE_DIR"
-  rsync_run "$host" "$REMOTE_DIR"
+  echo "Syncing code to $T_HOST:$T_DIR"
+  rsync_run "$T_HOST" "$T_DIR"
 
   local remote_cmd
 remote_cmd=$(cat <<REMOTE
 set -euo pipefail
-cd "$REMOTE_DIR"
+cd "$T_DIR"
 if [[ ! -d "venv" ]]; then
   python3 -m venv venv
 fi
 ./venv/bin/pip install -r requirements.txt >/dev/null
 
-if systemctl cat alittlebitofmoney.service >/dev/null 2>&1; then
-  systemctl stop alittlebitofmoney.service || true
-  pkill -f "uvicorn server:app --host 127.0.0.1 --port $PORT" >/dev/null 2>&1 || true
-  systemctl start alittlebitofmoney.service
-  systemctl is-active --quiet alittlebitofmoney.service
-  systemctl --no-pager --full status alittlebitofmoney.service | sed -n '1,20p'
+if systemctl cat $T_SERVICE >/dev/null 2>&1 && systemctl stop $T_SERVICE 2>/dev/null; then
+  pkill -f "uvicorn server:app --host 127.0.0.1 --port $T_PORT" >/dev/null 2>&1 || true
+  systemctl start $T_SERVICE
+  systemctl is-active --quiet $T_SERVICE
+  systemctl --no-pager --full status $T_SERVICE | sed -n '1,20p'
 else
-  pkill -f "uvicorn server:app --host 127.0.0.1 --port $PORT" >/dev/null 2>&1 || true
-  nohup ./venv/bin/uvicorn server:app --host 127.0.0.1 --port "$PORT" > app.log 2>&1 < /dev/null &
+  pkill -f "uvicorn server:app --host 127.0.0.1 --port $T_PORT" >/dev/null 2>&1 || true
+  sleep 1
+  nohup ./venv/bin/uvicorn server:app --host 127.0.0.1 --port "$T_PORT" > app.log 2>&1 < /dev/null &
   echo \$! > .uvicorn.pid
   sleep 1
   PID=\$(cat .uvicorn.pid)
@@ -178,7 +189,7 @@ else
 fi
 
 for attempt in \$(seq 1 20); do
-  if curl -fsS "http://127.0.0.1:$PORT/health" >/dev/null; then
+  if curl -fsS "http://127.0.0.1:$T_PORT/api/v1/health" >/dev/null; then
     break
   fi
   if [[ "\$attempt" == "20" ]]; then
@@ -187,16 +198,14 @@ for attempt in \$(seq 1 20); do
   fi
   sleep 1
 done
-curl -fsS "http://127.0.0.1:$PORT/" >/dev/null
-curl -fsS "http://127.0.0.1:$PORT/catalog" >/dev/null
-echo "Prod deploy complete"
+curl -fsS "http://127.0.0.1:$T_PORT/" >/dev/null
+echo "$env deploy complete → $T_DOMAIN"
 REMOTE
 )
 
-  ssh_run "$host" "$remote_cmd"
+  ssh_run "$T_HOST" "$remote_cmd"
 
-  echo "Prod app expected on 127.0.0.1:$PORT (behind nginx)"
-  echo "Version v0.2.0 | $(date +%Y) | alittlebitofmoney.com"
+  echo "$env app on $T_HOST:$T_PORT (behind nginx) → $T_DOMAIN"
 }
 
 case "$MODE" in
@@ -204,7 +213,10 @@ case "$MODE" in
     deploy_local
     ;;
   prod)
-    deploy_prod
+    deploy_remote prod
+    ;;
+  beta)
+    deploy_remote beta
     ;;
   *)
     usage

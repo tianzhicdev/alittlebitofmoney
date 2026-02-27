@@ -2,7 +2,6 @@ import CodeTabs from '../components/CodeTabs';
 import Collapsible from '../components/Collapsible';
 import ModelTable from '../components/ModelTable';
 import { useCatalog } from '../hooks/useCatalog';
-import { useReveal } from '../hooks/useReveal';
 import { generateSnippets } from '../utils/snippets';
 
 function formatUpdated(updatedAt) {
@@ -49,30 +48,26 @@ function flatPriceText(endpoint, satsToDisplay) {
 
 export default function Catalog() {
   const { catalog, loading, error, satsToDisplay } = useCatalog();
-  const revealRef = useReveal([loading, error, catalog]);
 
   return (
-    <div ref={revealRef} className="flex flex-col gap-5">
-      <section className="hero-panel reveal" style={{ minHeight: '45vh' }}>
-        <div className="hero-content">
-          <p className="eyebrow">Pricing</p>
-          <h1 className="glow-title">API Catalog</h1>
-          <p className="hero-sub">Live pricing in sats. USD estimates at current BTC rate.</p>
-        </div>
-      </section>
+    <div className="flex flex-col gap-5">
+      <div className="page-header">
+        <h1>API Catalog</h1>
+        <p>Live pricing in sats. USD estimates at current BTC rate.</p>
+      </div>
 
-      <section className="section reveal">
+      <section className="section">
         <div className="flex flex-wrap items-baseline gap-3 mb-3">
           <h2 className="section-title mb-0">Endpoints</h2>
           {typeof catalog?.btc_usd === 'number' ? (
             <>
-              <span className="text-[var(--accent)] font-semibold">
+              <span className="sats-value">
                 BTC/USD ${catalog.btc_usd.toLocaleString(undefined, { maximumFractionDigits: 2 })}
               </span>
-              <span className="text-[var(--muted)] text-sm">{formatUpdated(catalog?.btc_usd_updated_at)}</span>
+              <span className="text-sm" style={{ color: 'var(--muted)' }}>{formatUpdated(catalog?.btc_usd_updated_at)}</span>
             </>
           ) : (
-            <span className="text-[var(--muted)] text-sm">BTC/USD unavailable. Sats are source of truth.</span>
+            <span className="text-sm" style={{ color: 'var(--muted)' }}>BTC/USD unavailable. Sats are source of truth.</span>
           )}
         </div>
 
@@ -82,7 +77,7 @@ export default function Catalog() {
         {!loading && !error ? (
           <div className="grid gap-4">
             {Object.entries(catalog?.apis || {}).map(([apiName, api]) => (
-              <article key={apiName} className="api-card reveal">
+              <article key={apiName} className="api-card">
                 <h3>{api?.name || apiName}</h3>
                 <span className="api-badge">{apiName}</span>
 
@@ -99,7 +94,7 @@ export default function Catalog() {
                           <span className="endpoint-path">{endpointPath(apiName, endpoint.path)}</span>
                         </div>
 
-                        {endpoint.description ? <p className="text-[#8db0c4] text-sm mb-2">{endpoint.description}</p> : null}
+                        {endpoint.description ? <p className="text-sm mb-2" style={{ color: 'var(--muted)' }}>{endpoint.description}</p> : null}
 
                         {endpoint.price_type === 'per_model' ? (
                           <Collapsible title="Model Pricing" defaultOpen={false}>

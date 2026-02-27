@@ -6,6 +6,9 @@
 *.pem
 secrets/
 config.yaml.local
+.tokens.json
+CAPTAIN_WALLETS.md
+LION_WALLETS.md
 
 # Python
 __pycache__/

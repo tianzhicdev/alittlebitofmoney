@@ -15,11 +15,14 @@ export default function Navbar() {
         <NavLink to="/" className={navClass} end>
           Home
         </NavLink>
-        <NavLink to="/catalog" className={navClass}>
-          API Catalog
-        </NavLink>
         <NavLink to="/doc" className={navClass}>
           Developer Guide
+        </NavLink>
+        <NavLink to="/catalog" className={navClass}>
+          Paid APIs
+        </NavLink>
+        <NavLink to="/ai-for-hire" className={navClass}>
+          AI for Hire
         </NavLink>
       </nav>
     </header>

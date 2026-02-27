@@ -8,7 +8,7 @@ export function useCatalog() {
   useEffect(() => {
     const controller = new AbortController();
 
-    fetch('/api/catalog', { signal: controller.signal })
+    fetch('/api/v1/catalog', { signal: controller.signal })
       .then((response) => {
         if (!response.ok) {
           throw new Error('Catalog fetch failed');

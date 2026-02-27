@@ -43,7 +43,7 @@ pay_invoice() {
 }
 
 echo "=== Step 1: create topup invoice (${TOPUP_AMOUNT} sats) ==="
-STEP1_RAW="$(post_json "$BASE_URL/topup" "{\"amount_sats\":$TOPUP_AMOUNT}")"
+STEP1_RAW="$(post_json "$BASE_URL/api/v1/topup" "{\"amount_sats\":$TOPUP_AMOUNT}")"
 STEP1_BODY="$(echo "$STEP1_RAW" | sed '$d')"
 STEP1_CODE="$(echo "$STEP1_RAW" | tail -n1)"
 echo "$STEP1_BODY" | jq .
@@ -71,7 +71,7 @@ fi
 
 echo
 echo "=== Step 3: claim topup and get bearer token ==="
-CLAIM1_RAW="$(post_json "$BASE_URL/topup/claim" "{\"preimage\":\"$PREIMAGE1\"}")"
+CLAIM1_RAW="$(post_json "$BASE_URL/api/v1/topup/claim" "{\"preimage\":\"$PREIMAGE1\"}")"
 CLAIM1_BODY="$(echo "$CLAIM1_RAW" | sed '$d')"
 CLAIM1_CODE="$(echo "$CLAIM1_RAW" | tail -n1)"
 echo "$CLAIM1_BODY" | jq .
@@ -90,9 +90,9 @@ fi
 
 echo
 echo "=== Step 4: verify bearer insufficient-balance guard ==="
-EXPENSIVE_RAW="$(curl -sS -w "\n%{http_code}" -X POST "$BASE_URL/openai/v1/chat/completions" \
+EXPENSIVE_RAW="$(curl -sS -w "\n%{http_code}" -X POST "$BASE_URL/api/v1/openai/v1/chat/completions" \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $TOKEN" \
+  -H "X-Token: $TOKEN" \
   -d '{"model":"o1-pro","messages":[{"role":"user","content":"Say hello"}]}')"
 EXPENSIVE_BODY="$(echo "$EXPENSIVE_RAW" | sed '$d')"
 EXPENSIVE_CODE="$(echo "$EXPENSIVE_RAW" | tail -n1)"
@@ -110,9 +110,9 @@ fi
 
 echo
 echo "=== Step 5: create refill invoice with Bearer token (${REFILL_AMOUNT} sats) ==="
-REFILL_RAW="$(curl -sS -w "\n%{http_code}" -X POST "$BASE_URL/topup" \
+REFILL_RAW="$(curl -sS -w "\n%{http_code}" -X POST "$BASE_URL/api/v1/topup" \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $TOKEN" \
+  -H "X-Token: $TOKEN" \
   -d "{\"amount_sats\":$REFILL_AMOUNT}")"
 REFILL_BODY="$(echo "$REFILL_RAW" | sed '$d')"
 REFILL_CODE="$(echo "$REFILL_RAW" | tail -n1)"
@@ -139,7 +139,7 @@ if [[ -z "$PREIMAGE2" ]]; then
   exit 1
 fi
 
-CLAIM2_RAW="$(post_json "$BASE_URL/topup/claim" "{\"preimage\":\"$PREIMAGE2\",\"token\":\"$TOKEN\"}")"
+CLAIM2_RAW="$(post_json "$BASE_URL/api/v1/topup/claim" "{\"preimage\":\"$PREIMAGE2\",\"token\":\"$TOKEN\"}")"
 CLAIM2_BODY="$(echo "$CLAIM2_RAW" | sed '$d')"
 CLAIM2_CODE="$(echo "$CLAIM2_RAW" | tail -n1)"
 echo "$CLAIM2_BODY" | jq .

@@ -4,6 +4,7 @@ import Navbar from './components/Navbar';
 import Catalog from './pages/Catalog';
 import Doc from './pages/Doc';
 import Home from './pages/Home';
+import AIForHire from './pages/AIForHire';
 
 function Layout() {
   const location = useLocation();
@@ -11,7 +12,7 @@ function Layout() {
   return (
     <div className="site-shell">
       <Navbar />
-      <main key={location.pathname} className="page-content route-enter">
+      <main key={location.pathname} className="page-content">
         <Outlet />
       </main>
       <Footer />
@@ -26,6 +27,7 @@ export default function App() {
         <Route path="/" element={<Home />} />
         <Route path="/catalog" element={<Catalog />} />
         <Route path="/doc" element={<Doc />} />
+        <Route path="/ai-for-hire" element={<AIForHire />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

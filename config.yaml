@@ -1,7 +1,8 @@
 # alittlebitofmoney – API configuration
 #
-# Pricing calculated at ~$95,000/BTC baseline (1 sat ≈ $0.00095)
-# See PRICING_PRINCIPLES.md for methodology.
+# PROMO PRICING: 10 sats flat for all endpoints.
+# Daily call caps enforce loss limits (see server.py DAILY_RATE_LIMITS).
+# Original pricing preserved in comments for when promo ends.
 #
 # All prices in satoshis. USD shown in catalog is derived at runtime.
 
@@ -55,63 +56,63 @@ apis:
           # GPT-5.2 – flagship ($1.75/$10 per 1M)
           # worst: 8K×$1.75/1M + 4K×$10/1M = $0.014+$0.04 = $0.054 → 57 sats. 3x→170
           gpt-5.2:
-            price_sats: 180
+            price_sats: 10
             max_output_tokens: 4000
 
           # GPT-5.1 ($1.50/$10 per 1M est.)
           # worst: ~$0.052 → 55 sats. 3x→165
           gpt-5.1:
-            price_sats: 160
+            price_sats: 10
             max_output_tokens: 4000
 
           # GPT-5 ($1.25/$10 per 1M)
           # worst: 8K×$1.25/1M + 4K×$10/1M = $0.01+$0.04 = $0.05 → 53 sats. 3x→158
           gpt-5:
-            price_sats: 150
+            price_sats: 10
             max_output_tokens: 4000
 
           # GPT-5-mini ($0.25/$2 per 1M)
           # worst: $0.002+$0.008 = $0.01 → 11 sats. 3x→32
           gpt-5-mini:
-            price_sats: 35
+            price_sats: 10
             max_output_tokens: 4000
 
           # GPT-5-nano ($0.05/$0.40 per 1M)
           # worst: $0.0004+$0.0016 = $0.002 → 2 sats. Lightning floor.
           gpt-5-nano:
-            price_sats: 20
+            price_sats: 10
             max_output_tokens: 4000
 
           # ── GPT-4.1 family ──
           # GPT-4.1 ($2/$8 per 1M)
           # worst: $0.016+$0.032 = $0.048 → 51 sats. 3x→152
           gpt-4.1:
-            price_sats: 150
+            price_sats: 10
             max_output_tokens: 4000
 
           # GPT-4.1-mini ($0.40/$1.60 per 1M)
           # worst: $0.0032+$0.0064 = $0.0096 → 10 sats. 3x→30
           gpt-4.1-mini:
-            price_sats: 30
+            price_sats: 10
             max_output_tokens: 4000
 
           # GPT-4.1-nano ($0.10/$0.40 per 1M)
           # worst: $0.0008+$0.0016 = $0.0024 → 3 sats. Lightning floor.
           gpt-4.1-nano:
-            price_sats: 20
+            price_sats: 10
             max_output_tokens: 4000
 
           # ── GPT-4o family ──
           # GPT-4o ($2.50/$10 per 1M)
           # worst: $0.02+$0.04 = $0.06 → 63 sats. 3x→190
           gpt-4o:
-            price_sats: 180
+            price_sats: 10
             max_output_tokens: 4000
 
           # GPT-4o-mini ($0.15/$0.60 per 1M)
           # worst: $0.0012+$0.0024 = $0.0036 → 4 sats. Lightning floor.
           gpt-4o-mini:
-            price_sats: 21
+            price_sats: 10
             max_output_tokens: 4000
 
           # ── O-series reasoning models ──
@@ -120,47 +121,47 @@ apis:
           # o4-mini ($1.10/$4.40 per 1M) – max 16K output (incl. reasoning)
           # worst: $0.0088+$0.0704 = $0.079 → 83 sats. 2x→166
           o4-mini:
-            price_sats: 200
+            price_sats: 10
             max_output_tokens: 16000
 
           # o3 ($2/$8 per 1M) – max 16K output
           # worst: $0.016+$0.128 = $0.144 → 152 sats. 2x→303
           o3:
-            price_sats: 350
+            price_sats: 10
             max_output_tokens: 16000
 
           # o3-mini ($1.10/$4.40 per 1M) – max 16K output
           # worst: $0.0088+$0.0704 = $0.079 → 83 sats. 2x→166
           o3-mini:
-            price_sats: 200
+            price_sats: 10
             max_output_tokens: 16000
 
           # o3-pro ($20/$80 per 1M) – max 8K output (expensive model, tighter cap)
           # worst: $0.16+$0.64 = $0.80 → 842 sats. 1.5x→1263
           o3-pro:
-            price_sats: 1500
+            price_sats: 10
             max_output_tokens: 8000
 
           # o1 ($15/$60 per 1M) – max 8K output
           # worst: $0.12+$0.48 = $0.60 → 632 sats. 2x→1263
           o1:
-            price_sats: 1500
+            price_sats: 10
             max_output_tokens: 8000
 
           # o1-mini ($1.10/$4.40 per 1M est.) – max 16K output
           o1-mini:
-            price_sats: 200
+            price_sats: 10
             max_output_tokens: 16000
 
           # o1-pro ($150/$600 per 1M) – max 4K output (very expensive, tight cap)
           # worst: $1.20+$2.40 = $3.60 → 3789 sats. 1.5x→5684
           o1-pro:
-            price_sats: 6000
+            price_sats: 10
             max_output_tokens: 4000
 
           # Default / fallback
           _default:
-            price_sats: 150
+            price_sats: 10
             max_output_tokens: 4000
 
 
@@ -187,58 +188,58 @@ apis:
             error_keyword: "model"
         models:
           gpt-5.2:
-            price_sats: 250
+            price_sats: 10
             max_output_tokens: 4000
           gpt-5.1:
-            price_sats: 220
+            price_sats: 10
             max_output_tokens: 4000
           gpt-5:
-            price_sats: 200
+            price_sats: 10
             max_output_tokens: 4000
           gpt-5-mini:
-            price_sats: 50
+            price_sats: 10
             max_output_tokens: 4000
           gpt-5-nano:
-            price_sats: 25
+            price_sats: 10
             max_output_tokens: 4000
           gpt-4.1:
-            price_sats: 200
+            price_sats: 10
             max_output_tokens: 4000
           gpt-4.1-mini:
-            price_sats: 50
+            price_sats: 10
             max_output_tokens: 4000
           gpt-4.1-nano:
-            price_sats: 25
+            price_sats: 10
             max_output_tokens: 4000
           gpt-4o:
-            price_sats: 250
+            price_sats: 10
             max_output_tokens: 4000
           gpt-4o-mini:
-            price_sats: 30
+            price_sats: 10
             max_output_tokens: 4000
           o4-mini:
-            price_sats: 300
+            price_sats: 10
             max_output_tokens: 16000
           o3:
-            price_sats: 500
+            price_sats: 10
             max_output_tokens: 16000
           o3-mini:
-            price_sats: 300
+            price_sats: 10
             max_output_tokens: 16000
           o3-pro:
-            price_sats: 2000
+            price_sats: 10
             max_output_tokens: 8000
           o1:
-            price_sats: 2000
+            price_sats: 10
             max_output_tokens: 8000
           o1-mini:
-            price_sats: 300
+            price_sats: 10
             max_output_tokens: 16000
           o1-pro:
-            price_sats: 8000
+            price_sats: 10
             max_output_tokens: 4000
           _default:
-            price_sats: 200
+            price_sats: 10
             max_output_tokens: 4000
 
 
@@ -266,17 +267,17 @@ apis:
             error_keyword: "model"
         models:
           gpt-image-1.5:
-            price_sats: 500
+            price_sats: 10
           gpt-image-1:
-            price_sats: 500
+            price_sats: 10
           gpt-image-1-mini:
-            price_sats: 120
+            price_sats: 10
           dall-e-3:
-            price_sats: 300
+            price_sats: 10
           dall-e-2:
-            price_sats: 60
+            price_sats: 10
           _default:
-            price_sats: 500
+            price_sats: 10
 
 
       # ── Image Editing ─────────────────────────────────────────────
@@ -304,15 +305,15 @@ apis:
             error_keyword: "image"
         models:
           gpt-image-1.5:
-            price_sats: 500
+            price_sats: 10
           gpt-image-1:
-            price_sats: 500
+            price_sats: 10
           gpt-image-1-mini:
-            price_sats: 120
+            price_sats: 10
           dall-e-2:
-            price_sats: 60
+            price_sats: 10
           _default:
-            price_sats: 500
+            price_sats: 10
 
 
       # ── Image Variations ──────────────────────────────────────────
@@ -323,7 +324,7 @@ apis:
         description: "Generate image variations (DALL-E 2)"
         max_request_bytes: 4194304  # 4MB for image upload
         price_type: flat
-        price_sats: 60
+        price_sats: 10
         example:
           content_type: multipart
           fields:
@@ -365,13 +366,13 @@ apis:
             error_keyword: "model"
         models:
           tts-1:
-            price_sats: 200
+            price_sats: 10
           tts-1-hd:
-            price_sats: 350
+            price_sats: 10
           gpt-4o-mini-tts:
-            price_sats: 200
+            price_sats: 10
           _default:
-            price_sats: 200
+            price_sats: 10
 
 
       # ── Audio Transcription ───────────────────────────────────────
@@ -400,13 +401,13 @@ apis:
             error_keyword: "file"
         models:
           whisper-1:
-            price_sats: 200
+            price_sats: 10
           gpt-4o-transcribe:
-            price_sats: 200
+            price_sats: 10
           gpt-4o-mini-transcribe:
-            price_sats: 100
+            price_sats: 10
           _default:
-            price_sats: 200
+            price_sats: 10
 
 
       # ── Audio Translation ─────────────────────────────────────────
@@ -417,7 +418,7 @@ apis:
         description: "Translate audio to English text"
         max_request_bytes: 10485760  # 10MB
         price_type: flat
-        price_sats: 200
+        price_sats: 10
         example:
           content_type: multipart
           fields:
@@ -455,13 +456,13 @@ apis:
             error_keyword: "model"
         models:
           text-embedding-3-small:
-            price_sats: 21
+            price_sats: 10
           text-embedding-3-large:
-            price_sats: 21
+            price_sats: 10
           text-embedding-ada-002:
-            price_sats: 21
+            price_sats: 10
           _default:
-            price_sats: 21
+            price_sats: 10
 
 
       # ── Moderations ───────────────────────────────────────────────
@@ -484,13 +485,13 @@ apis:
             error_keyword: "model"
         models:
           omni-moderation-latest:
-            price_sats: 21
+            price_sats: 10
           text-moderation-latest:
-            price_sats: 21
+            price_sats: 10
           text-moderation-stable:
-            price_sats: 21
+            price_sats: 10
           _default:
-            price_sats: 21
+            price_sats: 10
 
 
       # ── Video Generation (via Sora) ───────────────────────────────
@@ -517,15 +518,15 @@ apis:
           # Sora 2 standard — up to 12s at 720p
           # worst: 12s × $0.10 = $1.20 → 1263 sats. 2x → 2526
           sora-2:
-            price_sats: 3000
+            price_sats: 10
 
           # Sora 2 Pro — up to 10s at 720p via API
           # worst: 10s × $0.30 = $3.00 → 3158 sats. 2x → 6316
           sora-2-pro:
-            price_sats: 7000
+            price_sats: 10
 
           _default:
-            price_sats: 3000
+            price_sats: 10
 
   openrouter:
     name: "OpenRouter"
@@ -561,26 +562,26 @@ apis:
         models:
           # openai/gpt-4o-mini (+ OpenRouter fee). Conservative 3x+ margin.
           "openai/gpt-4o-mini":
-            price_sats: 35
+            price_sats: 10
             max_output_tokens: 4000
 
           # openai/gpt-4.1-mini (+ OpenRouter fee). Conservative 3x+ margin.
           "openai/gpt-4.1-mini":
-            price_sats: 50
+            price_sats: 10
             max_output_tokens: 4000
 
           # anthropic/claude-3.5-haiku (+ OpenRouter fee). Mid-range pricing.
           "anthropic/claude-3.5-haiku":
-            price_sats: 90
+            price_sats: 10
             max_output_tokens: 4000
 
           # anthropic/claude-sonnet-4.5 (+ OpenRouter fee). Premium model.
           "anthropic/claude-sonnet-4.5":
-            price_sats: 320
+            price_sats: 10
             max_output_tokens: 4000
 
           _default:
-            price_sats: 200
+            price_sats: 10
             max_output_tokens: 4000
 
   anthropic:
@@ -617,24 +618,24 @@ apis:
         models:
           # Claude 3 Haiku (legacy low-cost option). Floor+ for LN economics.
           claude-3-haiku-20240307:
-            price_sats: 40
+            price_sats: 10
             max_output_tokens: 4000
 
           # Claude Haiku 4.5. Value-tier Anthropic model.
           claude-haiku-4-5-20251001:
-            price_sats: 90
+            price_sats: 10
             max_output_tokens: 4000
 
           # Claude Sonnet 4.6. Premium general model.
           claude-sonnet-4-6:
-            price_sats: 320
+            price_sats: 10
             max_output_tokens: 4000
 
           # Claude Opus 4.6. Expensive flagship; tighter cap.
           claude-opus-4-6:
-            price_sats: 1800
+            price_sats: 10
             max_output_tokens: 4000
 
           _default:
-            price_sats: 320
+            price_sats: 10
             max_output_tokens: 4000

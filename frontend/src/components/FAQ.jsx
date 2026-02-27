@@ -4,7 +4,7 @@ export default function FAQ({ items }) {
   const [openIndex, setOpenIndex] = useState(null);
 
   return (
-    <div className="reveal">
+    <div>
       {items.map((item, index) => {
         const open = openIndex === index;
         return (

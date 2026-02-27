@@ -28,6 +28,9 @@ class PhoenixClient:
     async def get_balance(self) -> Dict[str, Any]:
         return await self._request("GET", "/getbalance")
 
+    async def pay_invoice(self, bolt11: str) -> Dict[str, Any]:
+        return await self._request("POST", "/payinvoice", data={"invoice": bolt11})
+
     async def _request(
         self, method: str, path: str, data: Dict[str, Any] | None = None
     ) -> Dict[str, Any]:

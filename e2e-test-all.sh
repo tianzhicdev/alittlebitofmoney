@@ -8,7 +8,7 @@ set -euo pipefail
 
 BASE_URL="${BASE_URL:-${1:-https://alittlebitofmoney.com}}"
 BASE_URL="${BASE_URL%/}"
-CATALOG_URL="${CATALOG_URL:-${BASE_URL}/api/catalog}"
+CATALOG_URL="${CATALOG_URL:-${BASE_URL}/api/v1/catalog}"
 PHOENIX_TEST_URL="${PHOENIX_TEST_URL:-http://localhost:9741}"
 STRICT_KEYWORD_MATCH="${STRICT_KEYWORD_MATCH:-1}"
 VERBOSE="${VERBOSE:-0}"
@@ -343,15 +343,41 @@ for meta in "${ENDPOINT_META[@]}"; do
   if [[ "$method" == "POST" && "$content_type" == "json" ]]; then
     api_name="$(jq -r '.api_name' <<<"$meta")"
     endpoint_path="$(jq -r '.path' <<<"$meta")"
-    FIRST_JSON_URL="${BASE_URL}/${api_name}${endpoint_path}"
+    FIRST_JSON_URL="${BASE_URL}/api/v1/${api_name}${endpoint_path}"
     FIRST_JSON_BODY="$(jq -c '.example.body // {}' <<<"$meta")"
     break
   fi
 done
 
+# ── Documentation endpoint tests ──────────────────────────────────
+log "Testing documentation endpoints"
+
+run_http "GET /llms.txt" "${BASE_URL}/llms.txt"
+assert_status "200"
+if ! grep -q "aiforhire" "$LAST_BODY_FILE"; then
+  fail "/llms.txt missing expected content"
+fi
+if ! grep -q "L402" "$LAST_BODY_FILE"; then
+  fail "/llms.txt missing L402 documentation"
+fi
+log "  /llms.txt OK"
+
+run_http "GET /openapi.json" "${BASE_URL}/openapi.json"
+assert_status "200"
+jq -e '.openapi' "$LAST_BODY_FILE" >/dev/null || fail "/openapi.json is not valid OpenAPI"
+jq -e '.paths | length > 0' "$LAST_BODY_FILE" >/dev/null || fail "/openapi.json has no paths"
+jq -e '.components.securitySchemes.L402' "$LAST_BODY_FILE" >/dev/null || fail "/openapi.json missing L402 security scheme"
+log "  /openapi.json OK"
+
+run_http "GET /.well-known/ai-plugin.json" "${BASE_URL}/.well-known/ai-plugin.json"
+assert_status "200"
+jq -e '.schema_version' "$LAST_BODY_FILE" >/dev/null || fail "/.well-known/ai-plugin.json missing schema_version"
+jq -e '.api.url' "$LAST_BODY_FILE" >/dev/null || fail "/.well-known/ai-plugin.json missing api.url"
+log "  /.well-known/ai-plugin.json OK"
+
 log "Running shared proxy validation checks"
 
-post_json "${BASE_URL}/openai/v1/not-a-real-endpoint" '{"x":1}'
+post_json "${BASE_URL}/api/v1/openai/v1/not-a-real-endpoint" '{"x":1}'
 assert_status "404"
 assert_error_code "api_not_found"
 
@@ -389,7 +415,7 @@ for meta in "${ENDPOINT_META[@]}"; do
   [[ "$method" == "POST" ]] || fail "Unsupported endpoint method in catalog: ${api_name} ${method} ${endpoint_path}"
   [[ -n "$content_type" ]] || fail "Endpoint ${api_name}${endpoint_path} is missing example.content_type in catalog"
 
-  endpoint_url="${BASE_URL}/${api_name}${endpoint_path}"
+  endpoint_url="${BASE_URL}/api/v1/${api_name}${endpoint_path}"
   tested_count=$((tested_count + 1))
   log "Testing ${api_name} ${endpoint_path} (${tested_count}/${#ENDPOINT_META[@]})"
 

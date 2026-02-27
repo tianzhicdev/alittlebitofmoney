@@ -21,7 +21,7 @@ TEST_PHOENIX_URL="${PHOENIX_TEST_URL:-http://localhost:9741}"
 
 echo "=== Step 1: Request API call (expect 402) ==="
 STEP1_HEADERS="$(mktemp)"
-STEP1_RAW=$(curl -sS -D "$STEP1_HEADERS" -w "\n%{http_code}" -X POST "$BASE_URL/openai/v1/chat/completions" \
+STEP1_RAW=$(curl -sS -D "$STEP1_HEADERS" -w "\n%{http_code}" -X POST "$BASE_URL/api/v1/openai/v1/chat/completions" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "gpt-4o-mini",
@@ -65,7 +65,7 @@ fi
 
 echo
 echo "=== Step 3: Re-send request with L402 authorization ==="
-STEP3_RAW=$(curl -sS -w "\n%{http_code}" -X POST "$BASE_URL/openai/v1/chat/completions" \
+STEP3_RAW=$(curl -sS -w "\n%{http_code}" -X POST "$BASE_URL/api/v1/openai/v1/chat/completions" \
   -H "Content-Type: application/json" \
   -H "Authorization: L402 ${MACAROON}:${PREIMAGE}" \
   -d '{

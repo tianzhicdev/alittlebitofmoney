@@ -5,12 +5,12 @@ function escapeForSingleQuotedShell(value) {
 function routeFor(apiName, endpointPath) {
   const path = endpointPath || '';
   if (!path) {
-    return `/${apiName}`;
+    return `/api/v1/${apiName}`;
   }
   if (path.startsWith('/')) {
-    return `/${apiName}${path}`;
+    return `/api/v1/${apiName}${path}`;
   }
-  return `/${apiName}/${path}`;
+  return `/api/v1/${apiName}/${path}`;
 }
 
 function toPythonLiteral(value, indent = 0) {

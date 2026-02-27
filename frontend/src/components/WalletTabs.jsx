@@ -162,7 +162,7 @@ export default function WalletTabs() {
   }));
 
   return (
-    <div className="reveal">
+    <div>
       <div className="flex flex-wrap gap-2 mb-4">
         {wallets.map((candidate, index) => (
           <button
